@@ -1,0 +1,31 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { ProductsModule } from './modules/products/products.module';
+import { IngredientsModule } from './modules/ingredients/ingredients.module';
+import { AllergensModule } from './modules/allergens/allergens.module';
+import { DetectionsModule } from './modules/detections/detections.module';
+import { ContentsModule } from './modules/contents/contents.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { SettingsModule } from './modules/settings/settings.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    DatabaseModule,
+    AuthModule,
+    UsersModule,
+    CategoriesModule,
+    ProductsModule,
+    IngredientsModule,
+    AllergensModule,
+    DetectionsModule,
+    ContentsModule,
+    DashboardModule,
+    SettingsModule,
+  ],
+})
+export class AppModule {}
