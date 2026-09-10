@@ -1,38 +1,43 @@
-import { IsString, IsOptional, IsInt } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateProductDto {
   @ApiProperty({ example: 'Indomie Goreng' })
-  @IsString()
+  @IsString({ message: 'Name must be a string' })
   name: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Slug must be a string' })
   slug?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsInt()
+  @IsInt({ message: 'Category ID must be an integer' })
   categoryId?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Brand must be a string' })
   brand?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Barcode must be a string' })
   barcode?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Description must be a string' })
   description?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Image URL must be a string' })
   imageUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean({ message: 'isActive must be a boolean' })
+  isActive?: boolean;
 }

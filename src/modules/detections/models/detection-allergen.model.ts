@@ -2,7 +2,17 @@ import { Table, Column, Model, DataType, BelongsTo, ForeignKey, CreatedAt } from
 import { Detection } from './detection.model';
 import { Allergen } from '../../allergens/models/allergen.model';
 
-@Table({ tableName: 'detection_allergens', timestamps: false, underscored: true })
+@Table({
+  tableName: 'detection_allergens',
+  timestamps: false,
+  underscored: true,
+  indexes: [
+    {
+      unique: true,
+      fields: ['detection_id', 'allergen_id'],
+    },
+  ],
+})
 export class DetectionAllergen extends Model {
   @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
   id: number;

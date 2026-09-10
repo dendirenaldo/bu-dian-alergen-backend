@@ -7,7 +7,7 @@ export class Ingredient extends Model {
   id: number;
 
   @ForeignKey(() => Product)
-  @Column({ type: DataType.INTEGER, allowNull: false })
+  @Column({ type: DataType.INTEGER, allowNull: false, onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   productId: number;
 
   @Column({ type: DataType.TEXT, allowNull: false })

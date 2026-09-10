@@ -4,6 +4,8 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { Detection } from './models/detection.model';
 import { DetectionAllergen } from './models/detection-allergen.model';
+import { Product } from '../products/models/product.model';
+import { User } from '../users/models/user.model';
 
 @Injectable()
 export class DetectionsService {
@@ -71,7 +73,10 @@ export class DetectionsService {
     const offset = (page - 1) * limit;
     const { rows, count } = await this.detectionModel.findAndCountAll({
       where: { userId },
-      include: ['product', 'detectionAllergens'],
+      include: [
+        { model: Product, as: 'product' },
+        { model: DetectionAllergen, as: 'detectionAllergens' },
+      ],
       offset,
       limit,
       order: [['createdAt', 'DESC']],
@@ -81,7 +86,11 @@ export class DetectionsService {
 
   async findById(id: number) {
     const detection = await this.detectionModel.findByPk(id, {
-      include: ['user', 'product', 'detectionAllergens'],
+      include: [
+        { model: User, as: 'user', attributes: { exclude: ['password'] } },
+        { model: Product, as: 'product' },
+        { model: DetectionAllergen, as: 'detectionAllergens' },
+      ],
     });
     if (!detection) throw new NotFoundException('Detection not found');
     return detection;

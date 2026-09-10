@@ -37,7 +37,10 @@ export class DashboardService {
 
   async getRecentDetections(limit = 10) {
     return this.detectionModel.findAll({
-      include: ['user', 'product'],
+      include: [
+        { model: User, attributes: { exclude: ['password'] } },
+        'product',
+      ],
       limit,
       order: [['createdAt', 'DESC']],
     });

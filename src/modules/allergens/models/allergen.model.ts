@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, HasMany, CreatedAt, UpdatedAt } from 'sequelize-typescript';
 
 @Table({ tableName: 'allergens', timestamps: true, underscored: true })
 export class Allergen extends Model {
@@ -25,6 +25,9 @@ export class Allergen extends Model {
 
   @Column({ type: DataType.BOOLEAN, defaultValue: true })
   isActive: boolean;
+
+  @HasMany(() => require('../detections/models/detection-allergen.model').DetectionAllergen)
+  detectionAllergens: any[];
 
   @CreatedAt
   createdAt: Date;

@@ -1,19 +1,19 @@
-import { Table, Column, Model, DataType, BelongsTo, HasMany, ForeignKey, CreatedAt } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, BelongsTo, HasMany, ForeignKey, CreatedAt, UpdatedAt } from 'sequelize-typescript';
 import { User } from '../../users/models/user.model';
 import { Product } from '../../products/models/product.model';
 import { DetectionAllergen } from './detection-allergen.model';
 
-@Table({ tableName: 'detections', timestamps: false, underscored: true })
+@Table({ tableName: 'detections', timestamps: true, underscored: true })
 export class Detection extends Model {
   @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
   id: number;
 
   @ForeignKey(() => User)
-  @Column({ type: DataType.INTEGER, allowNull: false })
+  @Column({ type: DataType.INTEGER, allowNull: false, onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   userId: number;
 
   @ForeignKey(() => Product)
-  @Column({ type: DataType.INTEGER, allowNull: true })
+  @Column({ type: DataType.INTEGER, allowNull: true, onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   productId: number;
 
   @Column({ type: DataType.STRING(500), allowNull: true })
@@ -51,4 +51,7 @@ export class Detection extends Model {
 
   @CreatedAt
   createdAt: Date;
+
+  @UpdatedAt
+  updatedAt: Date;
 }

@@ -14,6 +14,9 @@ export class UserResponseDto {
   phone: string;
 
   @Expose()
+  avatarUrl: string;
+
+  @Expose()
   role: string;
 
   @Expose()

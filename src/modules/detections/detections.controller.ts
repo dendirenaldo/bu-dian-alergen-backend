@@ -1,7 +1,9 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, UploadedFile, UseInterceptors, ParseIntPipe } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { DetectionsService } from './detections.service';
+import { DetectTextDto } from './dto/detect-text.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -27,19 +29,18 @@ export class DetectionsController {
   @ApiOperation({ summary: 'Classify ingredient text' })
   async detectText(
     @CurrentUser() user: any,
-    @Body('text') text: string,
+    @Body() dto: DetectTextDto,
   ) {
-    return this.detectionsService.detectFromText(user.sub, text);
+    return this.detectionsService.detectFromText(user.sub, dto.text);
   }
 
   @Get()
   @ApiOperation({ summary: 'List user detections' })
   findAll(
     @CurrentUser() user: any,
-    @Query('page') page = 1,
-    @Query('limit') limit = 10,
+    @Query() pagination: PaginationQueryDto,
   ) {
-    return this.detectionsService.findAllByUser(user.sub, +page, +limit);
+    return this.detectionsService.findAllByUser(user.sub, pagination.page, pagination.limit);
   }
 
   @Get(':id')

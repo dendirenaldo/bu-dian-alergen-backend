@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -14,12 +14,16 @@ export class CategoriesController {
 
   @Get()
   @ApiOperation({ summary: 'List all categories' })
+  @ApiResponse({ status: 200, description: 'Categories retrieved successfully' })
   findAll() {
     return this.categoriesService.findAll();
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get category by ID' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Category retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Category not found' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.categoriesService.findById(id);
   }
@@ -29,6 +33,10 @@ export class CategoriesController {
   @ApiBearerAuth()
   @Roles('admin')
   @ApiOperation({ summary: 'Create category (admin)' })
+  @ApiResponse({ status: 201, description: 'Category created successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   create(@Body() dto: CreateCategoryDto) {
     return this.categoriesService.create(dto);
   }
@@ -38,6 +46,12 @@ export class CategoriesController {
   @ApiBearerAuth()
   @Roles('admin')
   @ApiOperation({ summary: 'Update category (admin)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Category updated successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Category not found' })
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
     return this.categoriesService.update(id, dto);
   }
@@ -47,6 +61,11 @@ export class CategoriesController {
   @ApiBearerAuth()
   @Roles('admin')
   @ApiOperation({ summary: 'Delete category (admin)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Category deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Category not found' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.categoriesService.remove(id);
   }

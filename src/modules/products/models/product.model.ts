@@ -15,7 +15,7 @@ export class Product extends Model {
   slug: string;
 
   @ForeignKey(() => Category)
-  @Column({ type: DataType.INTEGER, allowNull: true })
+  @Column({ type: DataType.INTEGER, allowNull: true, onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   categoryId: number;
 
   @Column({ type: DataType.STRING(255), allowNull: true })
@@ -31,7 +31,7 @@ export class Product extends Model {
   imageUrl: string;
 
   @ForeignKey(() => User)
-  @Column({ type: DataType.INTEGER, allowNull: true })
+  @Column({ type: DataType.INTEGER, allowNull: true, onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   createdBy: number;
 
   @Column({ type: DataType.BOOLEAN, defaultValue: true })
@@ -45,6 +45,9 @@ export class Product extends Model {
 
   @HasMany(() => Ingredient)
   ingredients: Ingredient[];
+
+  @HasMany(() => require('../../detections/models/detection.model').Detection)
+  detections: any[];
 
   @CreatedAt
   createdAt: Date;

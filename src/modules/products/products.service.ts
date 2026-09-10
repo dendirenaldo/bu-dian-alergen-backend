@@ -38,7 +38,14 @@ export class ProductsService {
   }
 
   async create(dto: CreateProductDto) {
-    return this.productModel.create(dto as any);
+    const { ingredients, ...productData } = dto as any;
+    const product = await this.productModel.create(productData);
+    if (ingredients && Array.isArray(ingredients)) {
+      await Ingredient.bulkCreate(
+        ingredients.map((text: string) => ({ productId: product.id, text }))
+      );
+    }
+    return this.findById(product.id);
   }
 
   async update(id: number, dto: UpdateProductDto) {

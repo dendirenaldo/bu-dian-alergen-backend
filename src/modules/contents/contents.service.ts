@@ -11,10 +11,14 @@ export class ContentsService {
     private contentModel: typeof Content,
   ) {}
 
-  async findAll(type?: string, status?: string) {
+  async findAll(type?: string, status?: string, isAdmin = false) {
     const where: any = {};
     if (type) where.type = type;
-    if (status) where.status = status;
+    if (status) {
+      where.status = status;
+    } else if (!isAdmin) {
+      where.status = 'published';
+    }
     return this.contentModel.findAll({ where, order: [['createdAt', 'DESC']] });
   }
 
@@ -30,10 +34,10 @@ export class ContentsService {
     return content;
   }
 
-  async create(dto: CreateContentDto) {
+  async create(dto: CreateContentDto, createdBy?: number) {
     const existing = await this.contentModel.findOne({ where: { slug: dto.slug } });
     if (existing) throw new ConflictException('Slug already exists');
-    return this.contentModel.create(dto as any);
+    return this.contentModel.create({ ...dto, createdBy } as any);
   }
 
   async update(id: number, dto: UpdateContentDto) {

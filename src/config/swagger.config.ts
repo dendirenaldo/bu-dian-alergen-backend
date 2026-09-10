@@ -13,4 +13,5 @@ export const swaggerConfig = new DocumentBuilder()
   .addTag('detections', 'Allergen Detection')
   .addTag('contents', 'CMS Content')
   .addTag('dashboard', 'Dashboard Statistics')
+  .addTag('settings', 'System Settings')
   .build();

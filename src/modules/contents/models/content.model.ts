@@ -37,7 +37,7 @@ export class Content extends Model {
   publishedAt: Date;
 
   @ForeignKey(() => User)
-  @Column({ type: DataType.INTEGER, allowNull: true })
+  @Column({ type: DataType.INTEGER, allowNull: true, onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   createdBy: number;
 
   @BelongsTo(() => User)

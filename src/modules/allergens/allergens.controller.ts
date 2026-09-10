@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { AllergensService } from './allergens.service';
 import { CreateAllergenDto } from './dto/create-allergen.dto';
 import { UpdateAllergenDto } from './dto/update-allergen.dto';
@@ -14,12 +14,16 @@ export class AllergensController {
 
   @Get()
   @ApiOperation({ summary: 'List all allergens' })
+  @ApiResponse({ status: 200, description: 'Allergens retrieved successfully' })
   findAll() {
     return this.allergensService.findAll();
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get allergen by ID' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Allergen retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Allergen not found' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.allergensService.findById(id);
   }
@@ -29,6 +33,10 @@ export class AllergensController {
   @ApiBearerAuth()
   @Roles('admin')
   @ApiOperation({ summary: 'Create allergen (admin)' })
+  @ApiResponse({ status: 201, description: 'Allergen created successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   create(@Body() dto: CreateAllergenDto) {
     return this.allergensService.create(dto);
   }
@@ -38,6 +46,12 @@ export class AllergensController {
   @ApiBearerAuth()
   @Roles('admin')
   @ApiOperation({ summary: 'Update allergen (admin)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Allergen updated successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Allergen not found' })
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateAllergenDto) {
     return this.allergensService.update(id, dto);
   }
@@ -47,6 +61,11 @@ export class AllergensController {
   @ApiBearerAuth()
   @Roles('admin')
   @ApiOperation({ summary: 'Delete allergen (admin)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Allergen deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Allergen not found' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.allergensService.remove(id);
   }

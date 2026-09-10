@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import * as bcrypt from 'bcrypt';
 import { User } from './models/user.model';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -23,7 +24,9 @@ export class UsersService {
   }
 
   async findById(id: number) {
-    const user = await this.userModel.findByPk(id);
+    const user = await this.userModel.findByPk(id, {
+      attributes: { exclude: ['password'] },
+    });
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
@@ -33,7 +36,8 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto) {
-    return this.userModel.create(dto as any);
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    return this.userModel.create({ ...dto, password: hashedPassword } as any);
   }
 
   async update(id: number, dto: UpdateUserDto) {
