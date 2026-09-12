@@ -7,6 +7,7 @@ import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('users')
 @Controller('users')
@@ -16,7 +17,7 @@ export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Get()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'List all users (admin)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -28,7 +29,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Get user by ID (admin)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'User retrieved successfully' })
@@ -40,7 +41,7 @@ export class UsersController {
   }
 
   @Post()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Create user (admin)' })
   @ApiResponse({ status: 201, description: 'User created successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
@@ -52,7 +53,7 @@ export class UsersController {
   }
 
   @Put(':id')
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Update user (admin)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'User updated successfully' })
@@ -65,7 +66,7 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Delete user (admin)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'User deleted successfully' })

@@ -4,12 +4,13 @@ import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('settings')
 @Controller('settings')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
-@Roles('admin')
+@Roles(Role.Admin)
 export class SettingsController {
   constructor(private settingsService: SettingsService) {}
 

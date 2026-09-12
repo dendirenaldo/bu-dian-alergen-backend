@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, UploadedFile, UseInterceptors, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, UploadedFile, UseInterceptors, ParseIntPipe, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { DetectionsService } from './detections.service';
@@ -15,14 +15,30 @@ export class DetectionsController {
   constructor(private detectionsService: DetectionsService) {}
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FileInterceptor('image', {
+    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    fileFilter: (_req, file, cb) => {
+      if (!file?.mimetype?.startsWith('image/')) {
+        cb(new BadRequestException('File harus berupa gambar (image/*)'), false);
+      } else {
+        cb(null, true);
+      }
+    },
+  }))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload image for allergen detection' })
   async upload(
     @CurrentUser() user: any,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.detectionsService.detectFromImage(user.sub, file.buffer, file.originalname);
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Gambar wajib diunggah');
+    }
+    const safe = (file.originalname || 'upload.jpg')
+      .replace(/[^a-zA-Z0-9.\-_]/g, '_')
+      .slice(-100);
+    const filename = `${Date.now()}-${safe}`;
+    return this.detectionsService.detectFromImage(user.sub, file.buffer, filename, file.mimetype);
   }
 
   @Post('text')
@@ -45,13 +61,13 @@ export class DetectionsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get detection detail' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.detectionsService.findById(id);
+  findOne(@CurrentUser() user: any, @Param('id', ParseIntPipe) id: number) {
+    return this.detectionsService.findById(id, user?.sub, user?.role);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete detection' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.detectionsService.remove(id);
+  remove(@CurrentUser() user: any, @Param('id', ParseIntPipe) id: number) {
+    return this.detectionsService.remove(id, user?.sub, user?.role);
   }
 }

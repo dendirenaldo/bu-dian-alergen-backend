@@ -10,10 +10,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private usersService: UsersService,
     private configService: ConfigService,
   ) {
+    const secret = configService.get<string>('JWT_SECRET');
+    if (!secret && process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET belum dikonfigurasi.');
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET', 'default-secret-change-me'),
+      secretOrKey: secret || 'dev-only-insecure-secret-min-32-chars-xxxx',
     });
   }
 
@@ -22,6 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user || !user.isActive) {
       throw new UnauthorizedException();
     }
-    return { sub: payload.sub, email: payload.email, role: payload.role };
+    // Selalu ambil role dari DB, bukan dari payload (mencegah stale role).
+    return { sub: user.id, email: user.email, role: user.role };
   }
 }

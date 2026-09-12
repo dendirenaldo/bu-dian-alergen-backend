@@ -6,6 +6,7 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('categories')
 @Controller('categories')
@@ -31,7 +32,7 @@ export class CategoriesController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Create category (admin)' })
   @ApiResponse({ status: 201, description: 'Category created successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
@@ -44,7 +45,7 @@ export class CategoriesController {
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Update category (admin)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'Category updated successfully' })
@@ -59,7 +60,7 @@ export class CategoriesController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Delete category (admin)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'Category deleted successfully' })

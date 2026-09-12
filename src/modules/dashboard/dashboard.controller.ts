@@ -1,15 +1,16 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('dashboard')
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
-@Roles('admin')
+@Roles(Role.Admin)
 export class DashboardController {
   constructor(private dashboardService: DashboardService) {}
 
@@ -21,7 +22,8 @@ export class DashboardController {
 
   @Get('recent')
   @ApiOperation({ summary: 'Get recent detections (admin)' })
-  getRecent(@Query('limit') limit = 10) {
-    return this.dashboardService.getRecentDetections(+limit);
+  getRecent(@Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number) {
+    const safe = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 100) : 10;
+    return this.dashboardService.getRecentDetections(safe);
   }
 }

@@ -6,6 +6,7 @@ import { UpdateAllergenDto } from './dto/update-allergen.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('allergens')
 @Controller('allergens')
@@ -31,7 +32,7 @@ export class AllergensController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Create allergen (admin)' })
   @ApiResponse({ status: 201, description: 'Allergen created successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
@@ -44,7 +45,7 @@ export class AllergensController {
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Update allergen (admin)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'Allergen updated successfully' })
@@ -59,7 +60,7 @@ export class AllergensController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Delete allergen (admin)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'Allergen deleted successfully' })

@@ -6,6 +6,7 @@ import { UpdateContentDto } from './dto/update-content.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('contents')
@@ -28,7 +29,7 @@ export class ContentsController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Create content (admin)' })
   create(@Body() dto: CreateContentDto, @CurrentUser() user: any) {
     return this.contentsService.create(dto, user.sub);
@@ -37,7 +38,7 @@ export class ContentsController {
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Update content (admin)' })
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateContentDto) {
     return this.contentsService.update(id, dto);
@@ -46,7 +47,7 @@ export class ContentsController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles('admin')
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Delete content (admin)' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.contentsService.remove(id);

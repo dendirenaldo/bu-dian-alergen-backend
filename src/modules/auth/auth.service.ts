@@ -20,11 +20,10 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    // Password di-hash terpusat di UsersService.create (hindari double-hash).
     const user = await this.usersService.create({
       ...dto,
-      password: hashedPassword,
-    });
+    } as any);
 
     const token = this.generateToken(user);
     return {
@@ -90,7 +89,7 @@ export class AuthService {
   }
 
   async changePassword(userId: number, dto: ChangePasswordDto) {
-    const user = await this.usersService.findById(userId);
+    const user = await this.usersService.findByIdWithPassword(userId);
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
@@ -100,8 +99,12 @@ export class AuthService {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
-    await user.update({ password: hashedPassword });
+    if (dto.currentPassword === dto.newPassword) {
+      throw new ConflictException('Password baru tidak boleh sama dengan password lama');
+    }
+
+    // Hashing dilakukan di UsersService.update.
+    await this.usersService.update(userId, { password: dto.newPassword } as any);
     return { message: 'Password changed successfully' };
   }
 

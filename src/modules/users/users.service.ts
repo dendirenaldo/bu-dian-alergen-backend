@@ -31,6 +31,12 @@ export class UsersService {
     return user;
   }
 
+  async findByIdWithPassword(id: number) {
+    const user = await this.userModel.findByPk(id);
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
   async findByEmail(email: string) {
     return this.userModel.findOne({ where: { email } });
   }
@@ -42,7 +48,12 @@ export class UsersService {
 
   async update(id: number, dto: UpdateUserDto) {
     const user = await this.findById(id);
-    await user.update(dto);
+    const payload: any = { ...dto };
+    // Hash password terpusat di sini agar tidak double-hash / plaintext.
+    if (payload.password) {
+      payload.password = await bcrypt.hash(payload.password, 10);
+    }
+    await user.update(payload);
     return user;
   }
 
