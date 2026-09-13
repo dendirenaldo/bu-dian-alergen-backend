@@ -26,7 +26,7 @@ export class Allergen extends Model {
   @Column({ type: DataType.BOOLEAN, defaultValue: true })
   isActive: boolean;
 
-  @HasMany(() => require('../detections/models/detection-allergen.model').DetectionAllergen)
+  @HasMany(() => require('../../detections/models/detection-allergen.model').DetectionAllergen)
   detectionAllergens: any[];
 
   @CreatedAt

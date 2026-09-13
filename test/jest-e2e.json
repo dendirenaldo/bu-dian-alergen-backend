@@ -1,0 +1,17 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "testRegex": "test/e2e-.*\\.spec\\.ts$",
+  "setupFiles": ["<rootDir>/test/setup-e2e.ts"],
+  "transformIgnorePatterns": ["node_modules/(?!(@nestjs/axios|@nestjs/config)/)"],
+  "transform": {
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "tsconfig": "tsconfig.json"
+      }
+    ]
+  },
+  "testTimeout": 90000
+}

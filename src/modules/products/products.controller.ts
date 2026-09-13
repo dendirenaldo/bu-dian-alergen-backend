@@ -1,13 +1,14 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { ProductsQueryDto } from './dto/products-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('products')
 @Controller('products')
@@ -16,12 +17,9 @@ export class ProductsController {
 
   @Get()
   @ApiOperation({ summary: 'List products' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'search', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Products retrieved successfully' })
-  findAll(@Query() pagination: PaginationQueryDto, @Query('search') search?: string) {
-    return this.productsService.findAll(pagination.page, pagination.limit, search);
+  findAll(@Query() query: ProductsQueryDto) {
+    return this.productsService.findAll(query.page ?? 1, query.limit ?? 10, query.search);
   }
 
   @Get(':id')
@@ -42,8 +40,8 @@ export class ProductsController {
   @ApiResponse({ status: 400, description: 'Validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  create(@Body() dto: CreateProductDto) {
-    return this.productsService.create(dto);
+  create(@Body() dto: CreateProductDto, @CurrentUser() user: any) {
+    return this.productsService.create(dto, user?.sub);
   }
 
   @Put(':id')

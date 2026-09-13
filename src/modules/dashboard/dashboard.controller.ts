@@ -26,4 +26,10 @@ export class DashboardController {
     const safe = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 100) : 10;
     return this.dashboardService.getRecentDetections(safe);
   }
+
+  @Get('trend')
+  @ApiOperation({ summary: 'Get daily detection trend (admin)' })
+  getTrend(@Query('days', new DefaultValuePipe(14), ParseIntPipe) days: number) {
+    return this.dashboardService.getTrend(days);
+  }
 }

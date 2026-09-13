@@ -1,47 +1,64 @@
-import { IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNotEmpty, MaxLength, Matches, IsDate } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ContentStatus, ContentType } from '../../../common/enums/content.enum';
 
 export class CreateContentDto {
-  @ApiProperty()
-  @IsString({ message: 'Title must be a string' })
+  @ApiProperty({ example: 'Panduan Alergen' })
+  @Transform(({ value }) => String(value ?? '').trim())
+  @IsString()
+  @IsNotEmpty({ message: 'Judul wajib diisi' })
+  @MaxLength(255)
   title: string;
 
-  @ApiProperty()
-  @IsString({ message: 'Slug must be a string' })
+  @ApiProperty({ example: 'panduan-alergen' })
+  @Transform(({ value }) => String(value ?? '').trim().toLowerCase())
+  @IsString()
+  @IsNotEmpty({ message: 'Slug wajib diisi' })
+  @MaxLength(255)
+  @Matches(/^[a-z0-9-]+$/, { message: 'Slug hanya boleh huruf kecil, angka, dan strip' })
   slug: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString({ message: 'Body must be a string' })
+  @IsString()
   body?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString({ message: 'Excerpt must be a string' })
+  @IsString()
   excerpt?: string;
 
-  @ApiPropertyOptional({ enum: ['page', 'article', 'announcement'] })
+  @ApiPropertyOptional({ enum: ContentType, example: ContentType.Article })
   @IsOptional()
-  @IsEnum(['page', 'article', 'announcement'], { message: 'Type must be page, article, or announcement' })
-  type?: string;
+  @IsEnum(ContentType)
+  type?: ContentType;
 
-  @ApiPropertyOptional({ enum: ['draft', 'published', 'archived'] })
+  @ApiPropertyOptional({ enum: ContentStatus, example: ContentStatus.Draft })
   @IsOptional()
-  @IsEnum(['draft', 'published', 'archived'], { message: 'Status must be draft, published, or archived' })
-  status?: string;
+  @IsEnum(ContentStatus)
+  status?: ContentStatus;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'https://example.com/cover.jpg' })
   @IsOptional()
-  @IsString({ message: 'Featured image URL must be a string' })
+  @IsString()
+  @MaxLength(500)
   featuredImageUrl?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString({ message: 'Meta title must be a string' })
+  @IsString()
+  @MaxLength(255)
   metaTitle?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString({ message: 'Meta description must be a string' })
+  @IsString()
   metaDescription?: string;
+
+  @ApiPropertyOptional({ example: '2026-01-01T00:00:00.000Z' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  publishedAt?: Date;
 }

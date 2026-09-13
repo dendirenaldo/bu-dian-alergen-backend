@@ -1,38 +1,55 @@
-import { IsString, IsEmail, MinLength, IsEnum, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsEmail, MinLength, MaxLength, IsEnum, IsOptional, IsBoolean, IsNotEmpty, Matches } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Role } from '../../../common/enums/role.enum';
 
 export class CreateUserDto {
-  @ApiProperty()
-  @IsString({ message: 'Name must be a string' })
-  @MinLength(2, { message: 'Name must be at least 2 characters' })
+  @ApiProperty({ example: 'John Doe' })
+  @Transform(({ value }) => String(value ?? '').trim())
+  @IsString()
+  @IsNotEmpty({ message: 'Nama wajib diisi' })
+  @MinLength(2)
+  @MaxLength(255)
   name: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'john@example.com' })
+  @Transform(({ value }) => String(value ?? '').trim().toLowerCase())
   @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email wajib diisi' })
+  @MaxLength(255)
   email: string;
 
-  @ApiProperty()
-  @IsString({ message: 'Password must be a string' })
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  @ApiProperty({ example: 'Password123' })
+  @IsString()
+  @IsNotEmpty({ message: 'Password wajib diisi' })
+  @MinLength(8)
+  @MaxLength(128)
+  @Matches(/^(?=.*[A-Z])(?=.*\d)/, { message: 'Password must contain uppercase letter and number' })
   password: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '08123456789' })
   @IsOptional()
-  @IsString({ message: 'Phone must be a string' })
+  @Transform(({ value }) => (value == null ? value : String(value).trim()))
+  @IsString()
+  @MaxLength(20)
+  @Matches(/^(\+62|62|0)[0-9]{8,14}$/, { message: 'Format nomor telepon tidak valid' })
   phone?: string;
 
   @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg' })
   @IsOptional()
-  @IsString({ message: 'Avatar URL must be a string' })
+  @IsString()
+  @MaxLength(500)
   avatarUrl?: string;
 
-  @ApiPropertyOptional({ enum: ['admin', 'user'] })
+  @ApiPropertyOptional({ enum: Role, example: Role.User })
   @IsOptional()
-  @IsEnum(['admin', 'user'], { message: 'Role must be either admin or user' })
-  role?: string;
+  @IsEnum(Role, { message: 'Role must be either admin or user' })
+  role?: Role;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
-  @IsBoolean({ message: 'isActive must be a boolean' })
+  @Type(() => Boolean)
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
   isActive?: boolean;
 }

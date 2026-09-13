@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ContentsService } from './contents.service';
 import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
+import { ContentsQueryDto } from './dto/contents-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -16,14 +17,14 @@ export class ContentsController {
 
   @Get()
   @ApiOperation({ summary: 'List contents' })
-  findAll(@Query('type') type?: string, @Query('status') status?: string) {
-    return this.contentsService.findAll(type, status);
+  findAll(@Query() query: ContentsQueryDto, @CurrentUser() user?: any) {
+    return this.contentsService.findAll(query, user?.role === 'admin');
   }
 
   @Get(':slug')
   @ApiOperation({ summary: 'Get content by slug' })
-  findBySlug(@Param('slug') slug: string) {
-    return this.contentsService.findBySlug(slug);
+  findBySlug(@Param('slug') slug: string, @CurrentUser() user?: any) {
+    return this.contentsService.findBySlug(slug, user?.role === 'admin');
   }
 
   @Post()

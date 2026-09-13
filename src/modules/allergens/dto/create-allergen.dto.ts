@@ -1,37 +1,50 @@
-import { IsString, IsEnum, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsBoolean, IsUrl, IsNotEmpty, MaxLength, Matches } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AllergenSeverity } from '../../../common/enums/allergen.enum';
 
 export class CreateAllergenDto {
   @ApiProperty({ example: 'Gluten' })
-  @IsString({ message: 'Name must be a string' })
+  @Transform(({ value }) => String(value ?? '').trim())
+  @IsString()
+  @IsNotEmpty({ message: 'Nama wajib diisi' })
+  @MaxLength(255)
   name: string;
 
   @ApiProperty({ example: 'GLUTEN' })
-  @IsString({ message: 'Code must be a string' })
+  @Transform(({ value }) => String(value ?? '').trim().toUpperCase())
+  @IsString()
+  @IsNotEmpty({ message: 'Kode wajib diisi' })
+  @MaxLength(50)
+  @Matches(/^[A-Z0-9_]+$/, { message: 'Kode hanya boleh huruf kapital, angka, underscore' })
   code: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString({ message: 'Description must be a string' })
+  @IsString()
   description?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'https://example.com/icon.png' })
   @IsOptional()
-  @IsString({ message: 'Icon URL must be a string' })
+  @IsUrl({ require_protocol: true })
+  @MaxLength(500)
   iconUrl?: string;
 
-  @ApiPropertyOptional({ enum: ['low', 'medium', 'high', 'critical'] })
+  @ApiPropertyOptional({ enum: AllergenSeverity, example: AllergenSeverity.High })
   @IsOptional()
-  @IsEnum(['low', 'medium', 'high', 'critical'], { message: 'Severity level must be low, medium, high, or critical' })
-  severityLevel?: string;
+  @IsEnum(AllergenSeverity)
+  severityLevel?: AllergenSeverity;
 
   @ApiPropertyOptional({ example: '#ef4444' })
   @IsOptional()
-  @IsString({ message: 'Color must be a string' })
+  @Transform(({ value }) => (value == null ? value : String(value).trim()))
+  @Matches(/^#[0-9a-fA-F]{6}$/, { message: 'Warna harus format hex (#RRGGBB)' })
   color?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
-  @IsBoolean({ message: 'isActive must be a boolean' })
+  @Type(() => Boolean)
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
   isActive?: boolean;
 }

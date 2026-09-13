@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Setting } from './models/setting.model';
+import { SettingType } from '../../common/enums/setting.enum';
 
 @Injectable()
 export class SettingsService {
@@ -10,19 +11,26 @@ export class SettingsService {
   ) {}
 
   async findAll() {
-    return this.settingModel.findAll();
+    return this.settingModel.findAll({ order: [['key', 'ASC']] });
   }
 
   async findByKey(key: string) {
-    return this.settingModel.findOne({ where: { key } });
+    const setting = await this.settingModel.findOne({ where: { key } });
+    if (!setting) throw new NotFoundException('Setting not found');
+    return setting;
   }
 
-  async set(key: string, value: string, type = 'string', description?: string) {
+  async set(key: string, value: string, type: string = SettingType.String, description?: string) {
+    const cleanKey = String(key).trim();
     const [setting] = await this.settingModel.findOrCreate({
-      where: { key },
-      defaults: { value, type, description },
+      where: { key: cleanKey },
+      defaults: { value, type, description } as any,
     });
-    await setting.update({ value, type, description });
+    const patch: any = { value };
+    if (type !== undefined) patch.type = type;
+    // Jangan timpa description jadi NULL saat tidak dikirim.
+    if (description !== undefined) patch.description = description;
+    await setting.update(patch);
     return setting;
   }
 }

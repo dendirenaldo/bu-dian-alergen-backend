@@ -1,6 +1,7 @@
 import { Controller, Get, Put, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { SettingsService } from './settings.service';
+import { UpdateSettingDto } from './dto/update-setting.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -40,7 +41,7 @@ export class SettingsController {
   @ApiResponse({ status: 200, description: 'Setting updated successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  async update(@Param('key') key: string, @Body() body: { value: string; type?: string; description?: string }) {
-    return this.settingsService.set(key, body.value, body.type, body.description);
+  async update(@Param('key') key: string, @Body() dto: UpdateSettingDto) {
+    return this.settingsService.set(key, dto.value, dto.type, dto.description);
   }
 }

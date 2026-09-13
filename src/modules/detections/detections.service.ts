@@ -21,6 +21,9 @@ import { Allergen } from '../allergens/models/allergen.model';
 import { Product } from '../products/models/product.model';
 import { User } from '../users/models/user.model';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const FormData = require('form-data');
+
 @Injectable()
 export class DetectionsService {
   private readonly logger = new Logger(DetectionsService.name);
@@ -103,7 +106,6 @@ export class DetectionsService {
   }
 
   async detectFromImage(userId: number, imageBuffer: Buffer, filename: string, mimetype = 'image/jpeg') {
-    const FormData = (await import('form-data')).default;
     const form = new FormData();
     // Nama field 'file' sesuai kontrak ML (app/api/routers/detection.py).
     form.append('file', imageBuffer, { filename, contentType: mimetype });

@@ -29,13 +29,13 @@ export class User extends Model {
   @Column({ type: DataType.DATE, allowNull: true })
   lastLoginAt: Date;
 
-  @HasMany(() => require('../products/models/product.model').Product)
+  @HasMany(() => require('../../products/models/product.model').Product)
   products: any[];
 
-  @HasMany(() => require('../contents/models/content.model').Content)
+  @HasMany(() => require('../../contents/models/content.model').Content)
   contents: any[];
 
-  @HasMany(() => require('../detections/models/detection.model').Detection)
+  @HasMany(() => require('../../detections/models/detection.model').Detection)
   detections: any[];
 
   @CreatedAt
