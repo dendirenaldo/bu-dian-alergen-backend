@@ -1,7 +1,7 @@
 import { DocumentBuilder } from '@nestjs/swagger';
 
 export const swaggerConfig = new DocumentBuilder()
-  .setTitle('Bu Dian Allergen Detection API')
+  .setTitle('Allergen Detector API')
   .setDescription('API untuk sistem deteksi alergen makanan')
   .setVersion('1.0')
   .addBearerAuth()

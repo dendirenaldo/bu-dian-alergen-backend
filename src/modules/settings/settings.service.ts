@@ -20,6 +20,23 @@ export class SettingsService {
     return setting;
   }
 
+  /**
+   * Subset pengaturan yang aman dikonsumsi publik (tanpa login),
+   * dipakai web/mobile untuk nama aplikasi dkk. Selalu ada fallback
+   * agar klien tidak pernah menerima null.
+   */
+  async getPublic(): Promise<Record<string, string>> {
+    const rows = await this.settingModel.findAll({
+      where: { key: ['app_name', 'app_version', 'registration_enabled'] as any },
+    });
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+    return {
+      app_name: map.get('app_name')?.trim() || 'Allergen Detector',
+      app_version: map.get('app_version')?.trim() || '1.0.0',
+      registration_enabled: map.get('registration_enabled')?.trim() || 'true',
+    };
+  }
+
   async set(key: string, value: string, type: string = SettingType.String, description?: string) {
     const cleanKey = String(key).trim();
     const [setting] = await this.settingModel.findOrCreate({

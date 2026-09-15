@@ -18,10 +18,21 @@ export class DetectionsController {
   @UseInterceptors(FileInterceptor('image', {
     limits: { fileSize: 5 * 1024 * 1024, files: 1 },
     fileFilter: (_req, file, cb) => {
-      if (!file?.mimetype?.startsWith('image/')) {
-        cb(new BadRequestException('File harus berupa gambar (image/*)'), false);
-      } else {
+      // Toleran: sebagian klien lama mengirim application/octet-stream tanpa
+      // content-type part. Terima bila ekstensi jelas gambar; keaslian bytes
+      // tetap dipastikan hilir via magic-byte (ML cv2.imdecode).
+      const mimetypeOk = !!file?.mimetype?.startsWith('image/');
+      const ext = (file?.originalname || '').toLowerCase().match(/\.[a-z0-9]+$/)?.[0] ?? '';
+      const extOk = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(ext);
+      if (mimetypeOk || extOk) {
         cb(null, true);
+      } else {
+        cb(
+          new BadRequestException(
+            `File harus berupa gambar (JPG/PNG/WEBP). Diterima: ${file?.mimetype || 'tanpa tipe'}`,
+          ),
+          false,
+        );
       }
     },
   }))

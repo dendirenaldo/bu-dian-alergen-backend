@@ -5,7 +5,7 @@ module.exports = {
     await queryInterface.bulkInsert('settings', [
       {
         key: 'app_name',
-        value: 'Bu Dian Alergen',
+        value: 'Allergen Detector',
         type: 'string',
         description: 'Nama aplikasi',
         created_at: new Date(),

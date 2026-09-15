@@ -212,7 +212,7 @@ export async function up(queryInterface: QueryInterface) {
 
   // --- Seed: default settings ---
   await queryInterface.bulkInsert('settings', [
-    { key: 'app_name', value: 'Bu Dian', type: 'string', description: 'Application name', updated_at: new Date() },
+    { key: 'app_name', value: 'Allergen Detector', type: 'string', description: 'Application name', updated_at: new Date() },
     { key: 'app_description', value: 'Sistem Deteksi Alergen Makanan', type: 'string', description: 'Application description', updated_at: new Date() },
     { key: 'detection_confidence_threshold', value: '0.5', type: 'number', description: 'Minimum confidence score for allergen detection', updated_at: new Date() },
     { key: 'max_upload_size_mb', value: '10', type: 'number', description: 'Maximum image upload size in MB', updated_at: new Date() },

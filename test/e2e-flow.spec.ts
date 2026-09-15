@@ -257,4 +257,19 @@ describe('E2E: register → login → deteksi → riwayat', () => {
       .set('Authorization', `Bearer ${adminToken}`);
     expect(huge.status).toBe(200);
   });
+
+  it('settings publik: tanpa token 200 + app_name, admin detail tetap terkunci', async () => {
+    const pub = await request(app.getHttpServer()).get('/api/v1/settings/public');
+    expect(pub.status).toBe(200);
+    expect(typeof pub.body.data.app_name).toBe('string');
+    expect(pub.body.data.app_name.trim().length).toBeGreaterThan(0);
+
+    // Rute admin tetap butuh auth.
+    const noAuth = await request(app.getHttpServer()).get('/api/v1/settings/app_name');
+    expect(noAuth.status).toBe(401);
+    const userForbidden = await request(app.getHttpServer())
+      .get('/api/v1/settings/app_name')
+      .set('Authorization', `Bearer ${tokenB}`);
+    expect(userForbidden.status).toBe(403);
+  });
 });
