@@ -18,8 +18,10 @@ out/
 # Environment
 .env
 .env.local
+.env.development
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
 
 # Logs
@@ -45,3 +47,10 @@ Thumbs.db
 
 # Misc
 *.tsbuildinfo
+
+# Runtime user uploads — JANGAN commit isi folder ini.
+# Tanpa rule ini, `git clean -fd` menghapus file upload user.
+# (Pakai `uploads/*` agar `!uploads/.gitkeep` tetap berlaku —
+#  git tak bisa re-include bila parent dir-nya sendiri di-ignore.)
+uploads/*
+!uploads/.gitkeep
