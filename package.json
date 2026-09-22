@@ -10,10 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "db:migrate": "npx sequelize-cli db:migrate",
-    "db:migrate:undo": "npx sequelize-cli db:migrate:undo",
-    "db:seed": "npx sequelize-cli db:seed:all",
-    "db:seed:undo": "npx sequelize-cli db:seed:undo:all"
+    "db:migrate": "npx sequelize-cli db:migrate --migrations-path dist/database/migrations",
+    "db:migrate:undo": "npx sequelize-cli db:migrate:undo --migrations-path dist/database/migrations",
+    "db:seed": "npx sequelize-cli db:seed:all --seeders-path src/database/seeders",
+    "db:seed:undo": "npx sequelize-cli db:seed:undo:all --seeders-path src/database/seeders"
   },
   "dependencies": {
     "@nestjs/axios": "^12.0.0",
