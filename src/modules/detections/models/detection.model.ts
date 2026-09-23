@@ -9,8 +9,20 @@ export class Detection extends Model {
   id: number;
 
   @ForeignKey(() => User)
-  @Column({ type: DataType.INTEGER, allowNull: false, onDelete: 'CASCADE', onUpdate: 'CASCADE' })
+  @Column({ type: DataType.INTEGER, allowNull: true, onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   userId: number;
+
+  @Column({ type: DataType.STRING(36), allowNull: true })
+  anonId: string;
+
+  @Column({ type: DataType.STRING(64), allowNull: true })
+  ipHash: string;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
+  isGuest: boolean;
+
+  @Column({ type: DataType.STRING(20), allowNull: false, defaultValue: 'bert' })
+  modelName: string;
 
   @ForeignKey(() => Product)
   @Column({ type: DataType.INTEGER, allowNull: true, onDelete: 'SET NULL', onUpdate: 'CASCADE' })

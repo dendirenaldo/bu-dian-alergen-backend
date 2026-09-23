@@ -20,6 +20,8 @@ import { SettingsModule } from './modules/settings/settings.module';
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60000, limit: 120 },
       { name: 'auth', ttl: 60000, limit: 20 },
+      // Tanpa login: hanya bisa 5x per jam (lapis throttler; MySQL adalah source of truth).
+      { name: 'public', ttl: 3600000, limit: 6 },
     ]),
     DatabaseModule,
     AuthModule,

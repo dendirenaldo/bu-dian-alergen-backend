@@ -96,9 +96,27 @@ export class AllExceptionsFilter implements ExceptionFilter {
         }
       }
 
+      // Teruskan field tambahan (mis. retryAfterSec) + header Retry-After untuk 429.
+      const extra =
+        typeof exceptionResponse === 'object' && exceptionResponse !== null
+          ? { ...(exceptionResponse as Record<string, unknown>) }
+          : {};
+      const retryAfter =
+        typeof (extra as any).retryAfterSec === 'number' ? (extra as any).retryAfterSec : undefined;
+      if (status === HttpStatus.TOO_MANY_REQUESTS && retryAfter && retryAfter > 0) {
+        response.setHeader('Retry-After', String(retryAfter));
+        response.setHeader('X-RateLimit-Remaining', '0');
+      }
+      delete (extra as any).message;
       return response.status(status).json({
         statusCode: status,
-        message: exception.message,
+        ...extra,
+        message:
+          typeof exceptionResponse === 'object' &&
+          exceptionResponse !== null &&
+          typeof (exceptionResponse as any).message === 'string'
+            ? (exceptionResponse as any).message
+            : exception.message,
       });
     }
 
