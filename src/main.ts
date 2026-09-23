@@ -4,7 +4,10 @@ import { SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
+// cookie-parser adalah modul CommonJS tanpa esModuleInterop di tsconfig,
+// jadi pakai import-require agar callable (pola sama seperti FormData).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 import { swaggerConfig } from './config/swagger.config';
 import { AllExceptionsFilter } from './common/filters/validation-exception.filter';
