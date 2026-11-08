@@ -54,8 +54,9 @@ export class UpdateDatasetItemDto {
   @IsIn(['draft', 'verified'], { message: 'status harus draft atau verified' })
   status?: 'draft' | 'verified';
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Catatan kurasi (maks 2000 karakter)' })
   @IsOptional()
   @IsString({ message: 'notes harus string' })
+  @MaxLength(2000, { message: 'notes maksimal 2000 karakter' })
   notes?: string;
 }

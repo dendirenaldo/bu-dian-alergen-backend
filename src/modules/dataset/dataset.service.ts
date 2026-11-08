@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import { createHash } from 'node:crypto';
 import { existsSync, statSync } from 'fs';
 import { basename, extname, join } from 'path';
 import type { Response } from 'express';
@@ -61,6 +62,90 @@ export function seededShuffle<T>(arr: T[], seed: number): T[] {
   return out;
 }
 
+/** Normalisasi teks split (port leakage_split.normalize_ocr_text_v5, disederhanakan). */
+export function normalizeSplitText(raw: unknown): string {
+  return String(raw ?? '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+/** Union-Find (DSU) untuk komponen leakage: 1 deteksi = 1 grup + teks duplikat = 1 komponen. */
+export class LeakageDSU {
+  private parent: number[];
+  constructor(n: number) {
+    this.parent = Array.from({ length: n }, (_, i) => i);
+  }
+  find(a: number): number {
+    let r = a;
+    while (this.parent[r] !== r) r = this.parent[r];
+    while (this.parent[a] !== a) {
+      const nxt = this.parent[a];
+      this.parent[a] = r;
+      a = nxt;
+    }
+    return r;
+  }
+  union(a: number, b: number): void {
+    const ra = this.find(a);
+    const rb = this.find(b);
+    if (ra !== rb) this.parent[rb] = ra;
+  }
+  components(): Map<number, number[]> {
+    const out = new Map<number, number[]>();
+    for (let i = 0; i < this.parent.length; i += 1) {
+      const r = this.find(i);
+      const list = out.get(r) ?? [];
+      list.push(i);
+      out.set(r, list);
+    }
+    return out;
+  }
+}
+
+export interface SplitAuditRow {
+  comparison: string;
+  overlap: number;
+  status: 'PASS' | 'FAIL';
+}
+
+/** Audit disjoint grup + exact-text antar train/val/test (port audit_split_no_leakage). */
+export function auditSplitDisjoint(
+  trainIds: number[],
+  valIds: number[],
+  testIds: number[],
+  rowsById: Map<number, { groupKey: string; textHash: string }>,
+): SplitAuditRow[] {
+  const setOf = (ids: number[], col: 'groupKey' | 'textHash'): Set<string> => {
+    const s = new Set<string>();
+    for (const id of ids) {
+      const v = rowsById.get(id)?.[col] ?? '';
+      if (v) s.add(v);
+    }
+    return s;
+  };
+  const pairs: Array<[string, number[], number[], 'groupKey' | 'textHash', string]> = [
+    ['train', trainIds, 'val' as unknown as number[], 'groupKey', 'group train/val'],
+  ];
+  const frames = { train: trainIds, val: valIds, test: testIds };
+  const comps: Array<[keyof typeof frames, keyof typeof frames, 'groupKey' | 'textHash', string]> = [
+    ['train', 'val', 'groupKey', 'group train/val'],
+    ['train', 'test', 'groupKey', 'group train/test'],
+    ['val', 'test', 'groupKey', 'group val/test'],
+    ['train', 'val', 'textHash', 'exact-text train/val'],
+    ['train', 'test', 'textHash', 'exact-text train/test'],
+    ['val', 'test', 'textHash', 'exact-text val/test'],
+  ];
+  void pairs;
+  return comps.map(([a, b, col, label]) => {
+    const sa = setOf(frames[a], col);
+    const sb = setOf(frames[b], col);
+    let overlap = 0;
+    for (const v of sa) if (sb.has(v)) overlap += 1;
+    return { comparison: label, overlap, status: overlap === 0 ? 'PASS' : 'FAIL' };
+  });
+}
+
 @Injectable()
 export class DatasetService {
   private readonly logger = new Logger(DatasetService.name);
@@ -74,11 +159,14 @@ export class DatasetService {
     private detectionAllergenModel: typeof DetectionAllergen,
     @InjectModel(Allergen)
     private allergenModel: typeof Allergen,
-    @Optional() @Inject('AUDIT_LOG_SERVICE') private readonly auditLogService?: {
+    @Optional()
+    @Inject('AUDIT_LOG_SERVICE')
+    private readonly auditLogService?: {
       log?: (action: string, meta?: Record<string, unknown>) => Promise<void> | void;
     },
   ) {}
 
+  /** Audit dataset.* — no-op bila provider absen (didokumentasikan di AuditLogService). */
   private async audit(action: string, meta: Record<string, unknown> = {}): Promise<void> {
     try {
       await this.auditLogService?.log?.(`dataset.${action}`, meta);
@@ -372,45 +460,154 @@ export class DatasetService {
     return { line: cols.map(csvEscape).join(','), imageFound, fileFound, ext, diskPath };
   }
 
-  buildManifestCsv(rows: DatasetItem[]): { csv: string; files: Array<{ entry: string; diskPath: string }> } {
+  buildManifestCsv(rows: DatasetItem[]): { csv: string; files: Array<{ entry: string; diskPath: string }>; missing: number } {
     const lines = ['id,detection_id,source,gold_label,status,model_name,detection_method,image_found,file_found,verified_by,verified_at'];
     const files: Array<{ entry: string; diskPath: string }> = [];
+    let missing = 0;
     for (const r of rows) {
       const m = this.manifestRow(r);
       lines.push(m.line);
       // Tanpa fallback: file hilang → file_found=false dan tidak masuk ZIP.
       if (m.fileFound && m.diskPath) {
         files.push({ entry: `images/${(r as any).id}${m.ext}`, diskPath: m.diskPath });
+      } else if (m.imageFound && !m.fileFound) {
+        missing += 1;
       }
     }
-    return { csv: lines.join('\n') + '\n', files };
+    return { csv: lines.join('\n') + '\n', files, missing };
   }
 
-  buildSplitJson(rows: DatasetItem[]) {
-    const groups = new Map<string, number[]>();
-    for (const r of rows) {
+  /**
+   * Split anti-leakage port leakage_split V5 (skala kecil: grup=deteksi, bukan product):
+   * union-find atas (detection-group + hash teks ternormalisasi) → 1 komponen = 1 split.
+   * Deterministik seed 42, rasio 70/15/15 per komponen. Audit disjoint grup + exact-text.
+   */
+  buildSplitJson(
+    rows: DatasetItem[],
+    opts: { imageCount?: number; missingImages?: number } = {},
+  ) {
+    const ids = rows.map((r) => (r as any).id as number);
+    const idxOf = new Map<number, number>();
+    ids.forEach((id, i) => idxOf.set(id, i));
+    const dsu = new LeakageDSU(Math.max(rows.length, 0));
+
+    // Union by detection-group.
+    const firstByGroup = new Map<string, number>();
+    const groupKeyOf = (r: DatasetItem): string => {
       const detId = (r as any).detectionId ?? (r as any).detection_id ?? null;
-      const key = detId != null ? `d:${detId}` : `i:${(r as any).id}`;
-      const list = groups.get(key) ?? [];
-      list.push((r as any).id);
-      groups.set(key, list);
+      return detId != null ? `d:${detId}` : `i:${(r as any).id}`;
+    };
+    rows.forEach((r, i) => {
+      const key = groupKeyOf(r);
+      const first = firstByGroup.get(key);
+      if (first === undefined) firstByGroup.set(key, i);
+      else dsu.union(first, i);
+    });
+
+    // Union by md5 teks ternormalisasi (duplikat lintas deteksi tetap satu komponen).
+    const byHash = new Map<string, number[]>();
+    const textHashOf = new Map<number, string>();
+    const rowsById = new Map<number, { groupKey: string; textHash: string }>();
+    rows.forEach((r, i) => {
+      const id = (r as any).id as number;
+      const normalized = normalizeSplitText(datasetRowText(r));
+      const groupKey = groupKeyOf(r);
+      if (!normalized) {
+        rowsById.set(id, { groupKey, textHash: '' });
+        return;
+      }
+      const hash = createHash('md5').update(normalized, 'utf8').digest('hex');
+      textHashOf.set(id, hash);
+      rowsById.set(id, { groupKey, textHash: hash });
+      const list = byHash.get(hash) ?? [];
+      list.push(id);
+      byHash.set(hash, list);
+    });
+    for (const [, dupIds] of byHash) {
+      if (dupIds.length < 2) continue;
+      const first = idxOf.get(dupIds[0])!;
+      for (let k = 1; k < dupIds.length; k += 1) dsu.union(first, idxOf.get(dupIds[k])!);
     }
-    const keys = seededShuffle([...groups.keys()], 42);
-    const n = keys.length;
-    const trainGroups = Math.floor(n * 0.7);
-    const valGroups = Math.floor(n * 0.15);
+    // Lengkapi rowsById untuk teks kosong.
+    for (const r of rows) {
+      const id = (r as any).id as number;
+      if (!rowsById.has(id)) rowsById.set(id, { groupKey: groupKeyOf(r), textHash: '' });
+    }
+
+    // Komponen leakage → lookup deterministik (port _build_components).
+    const compMembers = dsu.components();
+    const compIds = [...compMembers.keys()].sort((a, b) => a - b);
+    const compLookup: Record<number, { component_id: number; ids: number[]; n_rows: number }> = {};
+    for (const root of compIds) {
+      const members = (compMembers.get(root) ?? []).map((i) => ids[i]).sort((a, b) => a - b);
+      const cid = Math.min(...members);
+      compLookup[cid] = { component_id: cid, ids: members, n_rows: members.length };
+    }
+    const compKeys = Object.keys(compLookup)
+      .map(Number)
+      .sort((a, b) => a - b);
+    const ordered = seededShuffle(compKeys, 42);
+    const n = ordered.length;
+    const trainComps = Math.floor(n * 0.7);
+    const valComps = Math.floor(n * 0.15);
     const train: number[] = [];
     const val: number[] = [];
     const test: number[] = [];
-    keys.forEach((k, i) => {
-      const ids = groups.get(k) ?? [];
-      if (i < trainGroups) train.push(...ids);
-      else if (i < trainGroups + valGroups) val.push(...ids);
-      else test.push(...ids);
+    ordered.forEach((cid, i) => {
+      const members = compLookup[cid].ids;
+      if (i < trainComps) train.push(...members);
+      else if (i < trainComps + valComps) val.push(...members);
+      else test.push(...members);
     });
     train.sort((a, b) => a - b);
     val.sort((a, b) => a - b);
     test.sort((a, b) => a - b);
+
+    // Duplikat teks: deterministik (sort by hash), cap 50 grup.
+    const duplicateGroups = [...byHash.entries()]
+      .filter(([, dupIds]) => dupIds.length > 1)
+      .map(([hash, dupIds]) => ({ hash, ids: [...dupIds].sort((a, b) => a - b) }))
+      .sort((a, b) => (a.hash < b.hash ? -1 : a.hash > b.hash ? 1 : 0))
+      .slice(0, 50);
+    const duplicateGroupCount = duplicateGroups.length;
+    const uniqueTexts = byHash.size;
+    const duplicateIds = duplicateGroups.reduce((acc, g) => acc + g.ids.length, 0);
+
+    // Audit disjoint (port audit_split_no_leakage): grup + exact-text train/val/test.
+    const audit = auditSplitDisjoint(train, val, test, rowsById);
+    const disjoint = audit.every((r) => r.status === 'PASS') ? 'PASS' : 'FAIL';
+    if (disjoint === 'FAIL') {
+      this.logger.warn(`Split audit FAIL: ${JSON.stringify(audit)}`);
+    }
+
+    // Sessions: komposisi label per split (coverage sesi train/val/test).
+    const labelOf = (id: number): string => {
+      const r = rows.find((x) => (x as any).id === id) as any;
+      return String(r?.goldLabel ?? r?.gold_label ?? 'safe');
+    };
+    const sessionOf = (list: number[]) => {
+      let safe = 0;
+      let unsafe = 0;
+      for (const id of list) {
+        if (labelOf(id) === 'unsafe') unsafe += 1;
+        else safe += 1;
+      }
+      return { ids: list, count: list.length, safe, unsafe };
+    };
+    const sessions = { train: sessionOf(train), val: sessionOf(val), test: sessionOf(test) };
+
+    // Preflight: kesiapan unduh/train (port gagasan V5 sessions/preflight).
+    const imageCount = opts.imageCount ?? 0;
+    const missingImages = opts.missingImages ?? 0;
+    const preflight = {
+      disjoint,
+      hasTestImages: imageCount > 0,
+      missingImages,
+      duplicateGroups: duplicateGroupCount,
+      duplicateGroupsCapped: duplicateGroupCount <= 50,
+      frozenConflict: 'none' as const,
+    };
+
     return {
       seed: 42,
       ratios: { train: 0.7, val: 0.15, test: 0.15 },
@@ -418,11 +615,51 @@ export class DatasetService {
       groupBy: 'detection_id||id',
       splits: { train, val, test },
       counts: { train: train.length, val: val.length, test: test.length, total: rows.length },
+      duplicateGroups,
+      duplicateGroupCount,
+      coverage: {
+        groups: firstByGroup.size,
+        components: compKeys.length,
+        uniqueTexts,
+        total: rows.length,
+        duplicateIds,
+      },
+      components: compKeys.map((cid) => compLookup[cid]),
+      audit,
+      sessions,
+      preflight,
     };
   }
 
-  buildReadmeTxt(opts: { status: string; label?: string | null; total: number; counts: { train: number; val: number; test: number } }): string {
+  buildReadmeTxt(opts: {
+    status: string;
+    label?: string | null;
+    total: number;
+    counts: { train: number; val: number; test: number };
+    duplicateGroupCount?: number;
+    includeLabels?: boolean;
+    includeImages?: boolean;
+    includeSplit?: boolean;
+    coverage?: { groups: number; components: number; uniqueTexts: number; total: number; duplicateIds: number };
+    audit?: SplitAuditRow[];
+    preflight?: { disjoint: string; hasTestImages: boolean; missingImages: number; duplicateGroups: number; duplicateGroupsCapped: boolean; frozenConflict: string };
+  }): string {
     const { status, label, total, counts } = opts;
+    const duplicateGroupCount = opts.duplicateGroupCount ?? 0;
+    const includeLabels = opts.includeLabels ?? true;
+    const includeImages = opts.includeImages ?? true;
+    const includeSplit = opts.includeSplit ?? true;
+    const coverage = opts.coverage;
+    const audit = opts.audit ?? [];
+    const preflight = opts.preflight;
+    const contentLines = [
+      '- manifest.csv : id,detection_id,source,gold_label,status,model_name,detection_method,image_found,file_found,verified_by,verified_at',
+      ...(includeLabels ? ['- dataset.csv : text,label_id,label'] : []),
+      ...(includeImages ? ['- images/<id>.<ext> : citra sumber bila file masih ada di ./uploads (tanpa fallback)'] : []),
+      ...(includeSplit
+        ? ['- split.json : seed 42 + Fisher-Yates + DSU (detection_id + md5 teks) + splits/counts + duplicateGroups(cap 50) + coverage + components + audit + sessions + preflight']
+        : []),
+    ];
     return [
       'Dataset Ekspor Alergen (Bu Dian)',
       '=================================',
@@ -431,48 +668,94 @@ export class DatasetService {
       `Jumlah item: ${total}`,
       '',
       'Label: 0=safe, 1=unsafe',
-      'Split: seed 42, train 70% / val 15% / test 15% (group by detection_id||id)',
+      'Gabung ke train: CSV_DELIMITER="," (backend koma) vs train default ";" — set CSV_DELIMITER="," saat gabung; nama_produk disintesis produk_{i}.',
+      'Split: seed 42, train 70% / val 15% / test 15% (union-find detection_id||id + md5 teks, 1 komponen = 1 split, anti-leakage)',
       `Split counts: train=${counts.train}, val=${counts.val}, test=${counts.test}`,
+      ...(coverage
+        ? [
+            `Coverage: groups=${coverage.groups}, components=${coverage.components}, uniqueTexts=${coverage.uniqueTexts}, total=${coverage.total}, duplicateIds=${coverage.duplicateIds}`,
+          ]
+        : []),
+      ...(audit.length ? [`Audit: ${audit.map((a) => `${a.comparison}=${a.status}`).join(', ')}`] : []),
+      ...(preflight
+        ? [
+            `Preflight: disjoint=${preflight.disjoint}, hasTestImages=${preflight.hasTestImages}, missingImages=${preflight.missingImages}, duplicateGroups=${preflight.duplicateGroups} (cap 50: ${preflight.duplicateGroupsCapped}), frozenConflict=${preflight.frozenConflict}`,
+          ]
+        : []),
       '',
       'Isi berkas:',
-      '- dataset.csv : text,label_id,label',
-      '- manifest.csv : id,detection_id,source,gold_label,status,model_name,detection_method,image_found,file_found,verified_by,verified_at',
-      '- images/<id>.<ext> : citra sumber bila file masih ada di ./uploads (tanpa fallback)',
-      '- split.json : pembagian train/val/test + seed dan keyColumns',
+      ...contentLines,
+      `Duplikat teks: ${duplicateGroupCount} grup (>1 id; normalisasi lowercase+trim+collapse whitespace, hash md5, union-find, cap 50)`,
+      '',
+      'Contoh valid:',
+      'text,label_id,label',
+      'Air mineral murni,0,safe',
+      '"Susu bubuk, mengandung ""kacang"" dan whey",1,unsafe',
       '',
     ].join('\n');
   }
 
-  async estimateDownload(query: { status?: string; label?: string }) {
+  private parseIncludes(query: { includeLabels?: unknown; includeImages?: unknown; includeSplit?: unknown }) {
+    const asBool = (v: unknown, def = true): boolean => {
+      if (v === undefined || v === null || v === '') return def;
+      if (typeof v === 'boolean') return v;
+      const s = String(v).trim().toLowerCase();
+      if (['0', 'false', 'no', 'off'].includes(s)) return false;
+      if (['1', 'true', 'yes', 'on'].includes(s)) return true;
+      return def;
+    };
+    return {
+      includeLabels: asBool((query as any)?.includeLabels, true),
+      includeImages: asBool((query as any)?.includeImages, true),
+      includeSplit: asBool((query as any)?.includeSplit, true),
+    };
+  }
+
+  async estimateDownload(query: { status?: string; label?: string; includeLabels?: unknown; includeImages?: unknown; includeSplit?: unknown }) {
     const { rows, effectiveStatus } = await this.exportRows(query);
-    const datasetCsv = this.buildExportCsv(rows);
-    const { csv: manifestCsv, files } = this.buildManifestCsv(rows);
-    const split = this.buildSplitJson(rows);
-    const splitJson = JSON.stringify(split, null, 2);
+    const { includeLabels, includeImages, includeSplit } = this.parseIncludes(query);
+    const datasetCsv = includeLabels ? this.buildExportCsv(rows) : '';
+    const { csv: manifestCsv, files, missing: manifestMissing } = this.buildManifestCsv(rows);
+    const includedFiles = includeImages ? files : [];
+    let imagesBytes = 0;
+    let statMissing = 0;
+    for (const f of includedFiles) {
+      try {
+        imagesBytes += statSync(f.diskPath).size;
+      } catch {
+        statMissing += 1;
+      }
+    }
+    const missing = manifestMissing + statMissing;
+    const split = this.buildSplitJson(rows, { imageCount: includedFiles.length, missingImages: missing });
+    const splitJson = includeSplit ? JSON.stringify(split, null, 2) : '';
     const readme = this.buildReadmeTxt({
       status: effectiveStatus,
       label: query.label ?? null,
       total: rows.length,
       counts: split.counts,
+      duplicateGroupCount: split.duplicateGroupCount,
+      includeLabels,
+      includeImages,
+      includeSplit,
+      coverage: (split as any).coverage,
+      audit: (split as any).audit,
+      preflight: (split as any).preflight,
     });
-    let imagesBytes = 0;
-    let missing = 0;
-    for (const f of files) {
-      try {
-        imagesBytes += statSync(f.diskPath).size;
-      } catch {
-        missing += 1;
-      }
-    }
     const parts = {
-      datasetCsv: { bytes: Buffer.byteLength(datasetCsv, 'utf8'), rows: rows.length },
+      datasetCsv: { bytes: Buffer.byteLength(datasetCsv, 'utf8'), rows: includeLabels ? rows.length : 0 },
       manifestCsv: { bytes: Buffer.byteLength(manifestCsv, 'utf8'), rows: rows.length },
-      images: { bytes: imagesBytes, count: files.length, missing },
+      images: { bytes: imagesBytes, count: includedFiles.length, missing },
       splitJson: { bytes: Buffer.byteLength(splitJson, 'utf8') },
       readmeTxt: { bytes: Buffer.byteLength(readme, 'utf8') },
     };
     const overheadPerFile = 128;
-    const fileCount = 4 + files.length;
+    const fileCount =
+      1 + // manifest
+      1 + // readme
+      (includeLabels ? 1 : 0) +
+      (includeSplit ? 1 : 0) +
+      includedFiles.length;
     const bytes =
       parts.datasetCsv.bytes +
       parts.manifestCsv.bytes +
@@ -480,20 +763,33 @@ export class DatasetService {
       parts.splitJson.bytes +
       parts.readmeTxt.bytes +
       fileCount * overheadPerFile;
-    return { bytes, fileCount, breakdown: parts };
+    return { bytes, fileCount, breakdown: { ...parts, missing } };
   }
 
-  async downloadToResponse(query: { status?: string; label?: string }, res: Response, adminId?: number) {
+  async downloadToResponse(
+    query: { status?: string; label?: string; includeLabels?: unknown; includeImages?: unknown; includeSplit?: unknown },
+    res: Response,
+    adminId?: number,
+  ) {
     const { rows, effectiveStatus } = await this.exportRows(query);
-    const datasetCsv = this.buildExportCsv(rows);
-    const { csv: manifestCsv, files } = this.buildManifestCsv(rows);
-    const split = this.buildSplitJson(rows);
-    const splitJson = JSON.stringify(split, null, 2);
+    const { includeLabels, includeImages, includeSplit } = this.parseIncludes(query);
+    const datasetCsv = includeLabels ? this.buildExportCsv(rows) : '';
+    const { csv: manifestCsv, files, missing: manifestMissing } = this.buildManifestCsv(rows);
+    const includedFiles = includeImages ? files : [];
+    const split = this.buildSplitJson(rows, { imageCount: includedFiles.length, missingImages: manifestMissing });
+    const splitJson = includeSplit ? JSON.stringify(split, null, 2) : '';
     const readme = this.buildReadmeTxt({
       status: effectiveStatus,
       label: query.label ?? null,
       total: rows.length,
       counts: split.counts,
+      duplicateGroupCount: split.duplicateGroupCount,
+      includeLabels,
+      includeImages,
+      includeSplit,
+      coverage: (split as any).coverage,
+      audit: (split as any).audit,
+      preflight: (split as any).preflight,
     });
 
     const d = new Date();
@@ -505,7 +801,13 @@ export class DatasetService {
       status: effectiveStatus,
       label: query.label ?? null,
       count: rows.length,
-      images: files.length,
+      images: includedFiles.length,
+      missingImages: manifestMissing,
+      includeLabels,
+      includeImages,
+      includeSplit,
+      disjoint: (split as any).preflight?.disjoint ?? 'UNKNOWN',
+      duplicateGroups: (split as any).duplicateGroupCount ?? 0,
       adminId: adminId ?? null,
     });
 
@@ -526,12 +828,12 @@ export class DatasetService {
       }
     });
     archive.pipe(res);
-    archive.append(datasetCsv, { name: 'dataset.csv' });
+    if (includeLabels) archive.append(datasetCsv, { name: 'dataset.csv' });
     archive.append(manifestCsv, { name: 'manifest.csv' });
-    for (const f of files) {
+    for (const f of includedFiles) {
       archive.file(f.diskPath, { name: f.entry });
     }
-    archive.append(splitJson, { name: 'split.json' });
+    if (includeSplit) archive.append(splitJson, { name: 'split.json' });
     archive.append(readme, { name: 'README.txt' });
     await archive.finalize();
   }

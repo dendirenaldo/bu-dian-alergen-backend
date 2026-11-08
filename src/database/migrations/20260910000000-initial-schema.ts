@@ -188,10 +188,20 @@ export async function up(queryInterface: QueryInterface) {
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
+  await queryInterface.createTable('audit_logs', {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    action: { type: DataTypes.STRING(64), allowNull: false },
+    actor_id: { type: DataTypes.INTEGER, allowNull: true },
+    meta: { type: DataTypes.JSON, allowNull: true },
+    created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  });
+
   await queryInterface.addIndex('detections', ['user_id']);
   await queryInterface.addIndex('detections', ['product_id']);
   await queryInterface.addIndex('detections', ['created_at']);
   await queryInterface.addIndex('dataset_items', ['status', 'gold_label', 'detection_id']);
+  await queryInterface.addIndex('audit_logs', ['action']);
+  await queryInterface.addIndex('audit_logs', ['created_at']);
   await queryInterface.addIndex('detection_allergens', ['detection_id']);
   await queryInterface.addIndex('detection_allergens', ['allergen_id']);
   await queryInterface.addIndex('ingredients', ['product_id']);
@@ -239,6 +249,7 @@ export async function up(queryInterface: QueryInterface) {
 }
 
 export async function down(queryInterface: QueryInterface) {
+  await queryInterface.dropTable('audit_logs');
   await queryInterface.dropTable('dataset_items');
   await queryInterface.dropTable('detection_allergens');
   await queryInterface.dropTable('detections');
