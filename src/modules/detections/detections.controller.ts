@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, Headers, UseGuards, UploadedFile, UseInterceptors, ParseIntPipe, BadRequestException, Req, Res } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers, UseGuards, UploadedFile, UseInterceptors, ParseIntPipe, BadRequestException, Req, Res } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { DetectionsService, FREE_DETECTION_LIMIT, buildSseEvent, encodeSse, ensureAnonId, extractClientIp, hashIp, SSE_HEARTBEAT, SSE_HEARTBEAT_MS } from './detections.service';
+import { DatasetService } from '../dataset/dataset.service';
 import { DetectTextDto } from './dto/detect-text.dto';
 import { DetectModelQueryDto } from './dto/detect-model.query';
 import { AdminDetectionsQueryDto } from './dto/admin-detections.query';
@@ -52,7 +53,10 @@ const uploadInterceptor = FileInterceptor('image', {
 @ApiTags('detections')
 @Controller('detections')
 export class DetectionsController {
-  constructor(private detectionsService: DetectionsService) {}
+  constructor(
+    private detectionsService: DetectionsService,
+    private datasetService: DatasetService,
+  ) {}
 
 
   @Get('public/quota')
@@ -180,6 +184,15 @@ export class DetectionsController {
   @ApiOperation({ summary: 'Admin: semua riwayat deteksi beserta pemiliknya' })
   findAllAdmin(@Query() query: AdminDetectionsQueryDto) {
     return this.detectionsService.findAllAdmin(query);
+  }
+
+  @Put('admin/dataset/:detectionId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: upsert dataset item dari deteksi (prefill ocr/gold label/alergen)' })
+  upsertDataset(@Param('detectionId', ParseIntPipe) detectionId: number, @CurrentUser() user: any) {
+    return this.datasetService.upsertFromDetection(detectionId, user?.sub);
   }
 
 

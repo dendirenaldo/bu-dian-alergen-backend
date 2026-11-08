@@ -127,8 +127,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         response.setHeader('X-RateLimit-Remaining', '0');
       }
       const explicitCode =
-        typeof (extra as any).code === 'string' &&
-        (STABLE_CODES as readonly string[]).includes((extra as any).code)
+        typeof (extra as any).code === 'string' && (extra as any).code
           ? ((extra as any).code as string)
           : undefined;
       delete (extra as any).message;

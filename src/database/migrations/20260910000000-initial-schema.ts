@@ -128,6 +128,34 @@ export async function up(queryInterface: QueryInterface) {
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
+  await queryInterface.createTable('dataset_items', {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    detection_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'detections', key: 'id' },
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE',
+    },
+    source: { type: DataTypes.ENUM('detection', 'manual'), allowNull: false, defaultValue: 'detection' },
+    ocr_text: { type: DataTypes.TEXT, allowNull: true },
+    corrected_text: { type: DataTypes.TEXT, allowNull: true },
+    gold_label: { type: DataTypes.ENUM('safe', 'unsafe'), allowNull: false },
+    corrected_allergens: { type: DataTypes.JSON, allowNull: true },
+    status: { type: DataTypes.ENUM('draft', 'verified'), allowNull: false, defaultValue: 'draft' },
+    verified_by: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'users', key: 'id' },
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE',
+    },
+    verified_at: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  });
+
   await queryInterface.createTable('contents', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     title: { type: DataTypes.STRING(255), allowNull: false },
@@ -163,6 +191,7 @@ export async function up(queryInterface: QueryInterface) {
   await queryInterface.addIndex('detections', ['user_id']);
   await queryInterface.addIndex('detections', ['product_id']);
   await queryInterface.addIndex('detections', ['created_at']);
+  await queryInterface.addIndex('dataset_items', ['status', 'gold_label', 'detection_id']);
   await queryInterface.addIndex('detection_allergens', ['detection_id']);
   await queryInterface.addIndex('detection_allergens', ['allergen_id']);
   await queryInterface.addIndex('ingredients', ['product_id']);
@@ -210,6 +239,7 @@ export async function up(queryInterface: QueryInterface) {
 }
 
 export async function down(queryInterface: QueryInterface) {
+  await queryInterface.dropTable('dataset_items');
   await queryInterface.dropTable('detection_allergens');
   await queryInterface.dropTable('detections');
   await queryInterface.dropTable('ingredients');

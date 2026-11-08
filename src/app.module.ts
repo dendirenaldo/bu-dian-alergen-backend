@@ -13,6 +13,7 @@ import { DetectionsModule } from './modules/detections/detections.module';
 import { ContentsModule } from './modules/contents/contents.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { DatasetModule } from './modules/dataset/dataset.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     ContentsModule,
     DashboardModule,
     SettingsModule,
+    DatasetModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

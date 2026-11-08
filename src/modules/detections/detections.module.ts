@@ -10,12 +10,14 @@ import { FreeDetectionCounter } from './models/free-detection-counter.model';
 import { User } from '../users/models/user.model';
 import { Allergen } from '../allergens/models/allergen.model';
 import { AllergensModule } from '../allergens/allergens.module';
+import { DatasetModule } from '../dataset/dataset.module';
 
 @Module({
   imports: [
     SequelizeModule.forFeature([Detection, DetectionAllergen, Allergen, FreeDetectionLog, FreeDetectionCounter, User]),
     HttpModule.register({ timeout: 120000 }),
     AllergensModule,
+    DatasetModule,
   ],
   controllers: [DetectionsController],
   providers: [DetectionsService],
