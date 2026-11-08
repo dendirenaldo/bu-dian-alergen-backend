@@ -29,6 +29,13 @@ export class User extends Model {
   @Column({ type: DataType.DATE, allowNull: true })
   lastLoginAt: Date;
 
+  @Column({ type: DataType.DATE, allowNull: true, field: 'email_verified_at' })
+  emailVerifiedAt: Date;
+
+  get emailVerified(): boolean {
+    return !!this.emailVerifiedAt;
+  }
+
   @HasMany(() => require('../../products/models/product.model').Product)
   products: any[];
 

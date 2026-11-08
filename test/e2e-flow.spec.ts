@@ -119,13 +119,28 @@ describe('E2E: register → login → deteksi → riwayat', () => {
     for (const u of [userA, userB, userC]) {
       const res = await request(app.getHttpServer()).post('/api/v1/auth/register').send(u);
       expect(res.status).toBe(201);
-      expect(res.body.data.token).toBeDefined();
+      // Strict kontrak: register TIDAK return token.
+      expect(res.body.data.token).toBeUndefined();
+      expect(res.body.data.user?.email).toBe(u.email);
+      // Tandai verified agar bisa login (email verification strict).
+      await userRepo.update({ emailVerifiedAt: new Date() } as any, { where: { email: u.email } });
     }
     const dup = await request(app.getHttpServer()).post('/api/v1/auth/register').send(userA);
     expect(dup.status).toBe(409);
   });
 
-  it('login: password salah → 401, benar → 200 (bukti double-hash sembuh)', async () => {
+  it('login unverified → 403 EMAIL_NOT_VERIFIED; password salah → 401, benar → 200', async () => {
+    const fresh = { name: 'Unverified U', email: 'unverified@e2e.id', password: 'Password123' };
+    const reg = await request(app.getHttpServer()).post('/api/v1/auth/register').send(fresh);
+    expect(reg.status).toBe(201);
+
+    const blocked = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: fresh.email, password: fresh.password });
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.code).toBe('EMAIL_NOT_VERIFIED');
+
+    await userRepo.update({ emailVerifiedAt: new Date() } as any, { where: { email: fresh.email } });
     const wrong = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
       .send({ email: userB.email, password: 'Salah1234' });

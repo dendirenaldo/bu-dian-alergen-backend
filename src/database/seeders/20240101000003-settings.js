@@ -59,6 +59,22 @@ module.exports = {
         created_at: new Date(),
         updated_at: new Date(),
       },
+      {
+        key: 'email_verification_required',
+        value: 'true',
+        type: 'boolean',
+        description: 'Apakah verifikasi email wajib sebelum login',
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+      {
+        key: 'email_verification_ttl',
+        value: '24',
+        type: 'number',
+        description: 'Masa berlaku token verifikasi email (jam)',
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
     ]);
   },
 

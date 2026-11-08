@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 
-const STABLE_CODES = ['EMAIL_TAKEN', 'INVALID_CREDENTIALS', 'ACCOUNT_DISABLED', 'TOKEN_EXPIRED'] as const;
+const STABLE_CODES = ['EMAIL_TAKEN', 'INVALID_CREDENTIALS', 'ACCOUNT_DISABLED', 'TOKEN_EXPIRED', 'EMAIL_NOT_VERIFIED', 'EMAIL_ALREADY_VERIFIED'] as const;
 
 function resolveStableCode(message: string, statusCode: number, fields: string[] = []): string | undefined {
   const msg = String(message || '');
@@ -16,6 +16,8 @@ function resolveStableCode(message: string, statusCode: number, fields: string[]
   if (fields.map((f) => String(f).toLowerCase()).includes('email') && statusCode === 409) return 'EMAIL_TAKEN';
   if (/Invalid credentials/i.test(msg)) return 'INVALID_CREDENTIALS';
   if (/Account is deactivat|Account is disabl|Akun.*(nonaktif|dinonaktifkan)/i.test(msg)) return 'ACCOUNT_DISABLED';
+  if (/Email belum diverifikasi|Email not verified|EMAIL_NOT_VERIFIED/i.test(msg)) return 'EMAIL_NOT_VERIFIED';
+  if (/Email sudah terverifikasi|Email already verified|EMAIL_ALREADY_VERIFIED/i.test(msg)) return 'EMAIL_ALREADY_VERIFIED';
   if (/Token.*(kedaluwarsa|kadaluwarsa|expired)|Reset.*(kedaluwarsa|expired)|Token.*(tidak valid|invalid)|tautan.*reset/i.test(msg))
     return 'TOKEN_EXPIRED';
   return undefined;

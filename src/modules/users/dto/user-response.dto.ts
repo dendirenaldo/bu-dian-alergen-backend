@@ -35,6 +35,15 @@ export class UserResponseDto {
   @Type(() => Date)
   lastLoginAt?: Date;
 
+  @ApiProperty({ example: false })
+  @Expose()
+  emailVerified?: boolean;
+
+  @ApiPropertyOptional()
+  @Expose()
+  @Type(() => Date)
+  emailVerifiedAt?: Date;
+
   @ApiProperty()
   @Expose()
   @Type(() => Date)

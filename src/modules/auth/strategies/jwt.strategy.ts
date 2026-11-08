@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -25,6 +25,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.usersService.findById(payload.sub);
     if (!user || !user.isActive) {
       throw new UnauthorizedException();
+    }
+    const raw = String(process.env.REQUIRE_EMAIL_VERIFICATION ?? 'true').trim().toLowerCase();
+    const required = !['false', '0', 'no', 'off', 'disabled'].includes(raw);
+    if (required && !(user as any).emailVerifiedAt) {
+      throw new ForbiddenException({
+        message: 'Email belum diverifikasi. Silakan verifikasi email Anda.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
     }
     return { sub: user.id, email: user.email, role: user.role };
   }
