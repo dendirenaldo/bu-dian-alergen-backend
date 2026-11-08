@@ -8,7 +8,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
  */
 @Injectable()
 export class ThrottlerBehindProxyGuard extends ThrottlerGuard {
-  private readonly logger = new Logger(ThrottlerBehindProxyGuard.name);
+  protected readonly logger = new Logger(ThrottlerBehindProxyGuard.name);
 
   protected async getTracker(req: Record<string, any>): Promise<string> {
     const forwarded = req.headers?.['x-forwarded-for'];
