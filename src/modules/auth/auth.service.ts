@@ -242,7 +242,7 @@ export class AuthService {
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const expiresAt = new Date(Date.now() + verificationTtlHours() * 60 * 60 * 1000);
-    await this.verificationTokenModel.create({ userId, tokenHash, expiresAt } as any);
+    await this.verificationTokenModel.create({ userId, tokenHash, expiresAt, createdAt: new Date() } as any);
     await this.sendVerificationEmail(email, token);
     return token;
   }
@@ -262,7 +262,7 @@ export class AuthService {
       const token = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-      await this.resetTokenModel.create({ userId: user.id, tokenHash, expiresAt } as any);
+      await this.resetTokenModel.create({ userId: user.id, tokenHash, expiresAt, createdAt: new Date() } as any);
       await this.sendResetEmail(user.email, token);
     } catch (e) {
       // Selalu 200 agar tidak bocor enumerasi email; log untuk observability.

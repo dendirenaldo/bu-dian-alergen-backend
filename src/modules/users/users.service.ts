@@ -49,7 +49,11 @@ export class UsersService {
       order: buildOrder(sort?.sortBy, sort?.sortDir, USER_SORTABLE, [['createdAt', 'DESC']]),
       attributes: { exclude: ['password'] },
     });
-    return { data: rows, total: count, page, limit, totalPages: Math.ceil(count / limit) };
+    const data = rows.map((user) => ({
+      ...user.toJSON(),
+      emailVerified: !!user.emailVerifiedAt,
+    }));
+    return { data, total: count, page, limit, totalPages: Math.ceil(count / limit) };
   }
 
   async findById(id: number) {
