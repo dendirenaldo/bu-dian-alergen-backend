@@ -181,7 +181,6 @@ export class DetectionsService {
   ) {
     const model = normalizeModel(modelInput);
     const form = new FormData();
-    // Nama field 'file' sesuai kontrak ML (app/api/routers/detection.py).
     form.append('file', imageBuffer, { filename, contentType: mimetype });
 
     let mlResult: any;
@@ -270,15 +269,6 @@ export class DetectionsService {
     return detection;
   }
 
-  // ---------- Free detection tanpa login: hanya bisa 5x per jam ----------
-  //
-  // Anti-race (MySQL saja, tanpa Redis): enforcement memakai tabel
-  // free_detection_counters dengan jendela jam kalender UTC. Setiap request
-  // menambah counter via SATU statement atomik (INSERT ... ON DUPLICATE KEY
-  // UPDATE) per identitas ('ip:<hash>' dan 'anon:<uuid>'). Karena increment
-  // itu atomik di level baris, N request konkuren tidak bisa sama-sama lolos:
-  // yang melebihi batas langsung decrement kembali + 429.
-  // free_detection_logs dipertahankan sebagai audit (deteksi yang selesai).
 
   /** Bucket jam kalender UTC 'YYYYMMDDHH'. */
   private hourBucket(now = new Date()) {
@@ -351,7 +341,6 @@ export class DetectionsService {
   private async reservePublicQuota(ipHash: string, anonId: string) {
     const window = this.hourBucket();
     const identities = this.counterIdentities(ipHash, anonId);
-    // Bersih-bersih oportunistik (best-effort, jangan gagalkan request).
     void this.counterModel
       .destroy({ where: { updatedAt: { [Op.lt]: new Date(Date.now() - 48 * 3600 * 1000) } } })
       .catch((e) => this.logger.warn(`Gagal membersihkan counter kuota: ${e?.message}`));
@@ -431,10 +420,7 @@ export class DetectionsService {
     anonId: string;
   }) {
     const model = normalizeModel(opts.modelInput);
-    // Fast-path read-only agar tidak mengotori counter saat kuota jelas habis.
     this.assertQuota(await this.checkPublicQuota(opts.ipHash, opts.anonId));
-    // Reservasi atomik SEBELUM panggil ML: kegagalan ML ikut memakan kuota
-    // (mencegah spam biaya ML) dan request konkuren tidak bisa sama-sama lolos.
     const { remaining } = await this.reservePublicQuota(opts.ipHash, opts.anonId);
     const mlResult = await this.callMlText(opts.text, model);
     if (!mlResult?.result || !['safe', 'unsafe'].includes(mlResult.result)) {
@@ -468,7 +454,6 @@ export class DetectionsService {
   }) {
     const model = normalizeModel(opts.modelInput);
     this.assertQuota(await this.checkPublicQuota(opts.ipHash, opts.anonId));
-    // Reservasi atomik SEBELUM panggil ML (lihat detectPublicFromText).
     const remaining = (await this.reservePublicQuota(opts.ipHash, opts.anonId)).remaining;
     const mlResult = await this.callMlImage(opts.buffer, opts.filename, opts.mimetype, model);
     if (!mlResult?.result || !['safe', 'unsafe'].includes(mlResult.result)) {
@@ -536,7 +521,6 @@ export class DetectionsService {
       const esc = this.escapeLike(raw);
       const like = { [Op.like]: `%${esc}%` };
       const ors: any[] = [{ ocrText: like }, { imageUrl: like }];
-      // Cari juga berdasarkan nama/email pemilik.
       const matchedUsers = await this.userModel.findAll({
         where: { [Op.or]: [{ name: like }, { email: like }] },
         attributes: ['id'],

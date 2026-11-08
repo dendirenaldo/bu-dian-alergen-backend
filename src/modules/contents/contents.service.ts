@@ -18,7 +18,6 @@ export class ContentsService {
     const where: any = {};
     if (query.type) where.type = query.type;
     if (query.status) {
-      // User publik tidak boleh intip draft/archived via query.
       where.status = isAdmin ? query.status : ContentStatus.Published;
     } else if (!isAdmin) {
       where.status = ContentStatus.Published;

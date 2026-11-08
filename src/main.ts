@@ -1,11 +1,10 @@
+import 'reflect-metadata';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import helmet from 'helmet';
-// cookie-parser adalah modul CommonJS tanpa esModuleInterop di tsconfig,
-// jadi pakai import-require agar callable (pola sama seperti FormData).
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
@@ -18,9 +17,6 @@ async function bootstrap() {
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cookieParser());
-  // Percaya 1 hop proxy (load balancer / ingress) agar req.ip benar.
-  // Jangan percaya rantai panjang: XFF multi-hop tetap diambil hop pertama
-  // dan selalu dikombinasikan dengan anon_id di sisi kuota.
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
   app.setGlobalPrefix('api/v1');
@@ -47,7 +43,8 @@ async function bootstrap() {
   
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`API running on port ${port}`);
-  console.log(`Swagger docs: http://localhost:${port}/api/docs`);
+  const logger = new Logger('Bootstrap');
+  logger.log(`API running on port ${port}`);
+  logger.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }
 bootstrap();

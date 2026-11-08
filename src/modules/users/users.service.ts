@@ -49,7 +49,6 @@ export class UsersService {
   async update(id: number, dto: UpdateUserDto) {
     const user = await this.findById(id);
     const payload: any = { ...dto };
-    // Hash password terpusat di sini agar tidak double-hash / plaintext.
     if (payload.password) {
       payload.password = await bcrypt.hash(payload.password, 10);
     }

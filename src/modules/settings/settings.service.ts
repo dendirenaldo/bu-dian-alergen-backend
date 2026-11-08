@@ -45,7 +45,6 @@ export class SettingsService {
     });
     const patch: any = { value };
     if (type !== undefined) patch.type = type;
-    // Jangan timpa description jadi NULL saat tidak dikirim.
     if (description !== undefined) patch.description = description;
     await setting.update(patch);
     return setting;

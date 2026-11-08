@@ -12,7 +12,6 @@ export async function up(queryInterface: QueryInterface) {
   const cols = await queryInterface.describeTable('detections');
 
   if (cols['user_id'] && (cols['user_id'] as any).allowNull === false) {
-    // MySQL: ubah menjadi nullable. FK dipertahankan via changeColumn.
     await queryInterface.changeColumn('detections', 'user_id', {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -53,7 +52,6 @@ export async function up(queryInterface: QueryInterface) {
     await queryInterface.addIndex('detections', ['is_guest']);
   } catch { /* index sudah ada */ }
 
-  // Tabel quota anonim: satu baris per percobaan (termasuk yang gagal ML? tidak — hanya sukses).
   const tables = await queryInterface.showAllTables();
   const names = (tables as any[]).map((t) => (typeof t === 'string' ? t : t.tableName || Object.values(t)[0]));
   if (!names.includes('free_detection_logs')) {
@@ -72,7 +70,6 @@ export async function up(queryInterface: QueryInterface) {
 }
 
 export async function down(queryInterface: QueryInterface) {
-  // Tolak rollback bila masih ada data tamu — mengembalikan NOT NULL akan gagal.
   const [rows] = (await queryInterface.sequelize.query(
     'SELECT COUNT(*) AS cnt FROM detections WHERE user_id IS NULL',
   )) as any[];
@@ -88,7 +85,6 @@ export async function down(queryInterface: QueryInterface) {
   for (const c of ['model_name', 'is_guest', 'ip_hash', 'anon_id']) {
     if (cols[c]) await queryInterface.removeColumn('detections', c);
   }
-  // user_id dikembalikan NOT NULL hanya bila tidak ada baris anonim tersisa.
   await queryInterface.changeColumn('detections', 'user_id', {
     type: DataTypes.INTEGER,
     allowNull: false,

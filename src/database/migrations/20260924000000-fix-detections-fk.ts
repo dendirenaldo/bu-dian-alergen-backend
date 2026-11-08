@@ -6,7 +6,6 @@ import { QueryInterface, DataTypes } from 'sequelize';
  * Idempoten: lewati bila constraint sudah ada.
  */
 export async function up(queryInterface: QueryInterface) {
-  // Pastikan kolom nullable (anonim) + ada index.
   const cols = await queryInterface.describeTable('detections');
   if (cols['user_id'] && (cols['user_id'] as any).allowNull === false) {
     await queryInterface.changeColumn('detections', 'user_id', {
@@ -32,7 +31,6 @@ export async function up(queryInterface: QueryInterface) {
         onUpdate: 'CASCADE',
       });
     } catch (e) {
-      // Baris yatim (user terhapus) menggagalkan FK — biarkan error terlihat.
       throw e;
     }
   }

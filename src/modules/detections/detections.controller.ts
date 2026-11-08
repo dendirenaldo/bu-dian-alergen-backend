@@ -18,8 +18,6 @@ function setAnonCookie(req: Request, res: Response, anonId: string) {
   const existing = (req as any)?.cookies?.['anon_id'];
   if (existing === anonId) return;
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  // HttpOnly agar tidak bisa dibaca/ditulis JS (anti-tamper ringan).
-  // appendHeader agar tidak menimpa Set-Cookie lain.
   res.appendHeader(
     'Set-Cookie',
     `anon_id=${anonId}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax${secure}`,
@@ -56,7 +54,6 @@ const uploadInterceptor = FileInterceptor('image', {
 export class DetectionsController {
   constructor(private detectionsService: DetectionsService) {}
 
-  // ---------- Tanpa login: hanya bisa 5x per jam (kuota server-side) ----------
 
   @Get('public/quota')
   @Throttle({ public: { limit: 30, ttl: 60000 } })
@@ -70,9 +67,6 @@ export class DetectionsController {
     return { limit: FREE_DETECTION_LIMIT, remaining: q.remaining, used: q.used };
   }
 
-  // Catatan: limit throttler (6) sengaja 1 di atas kuota MySQL (5) sebagai
-  // headroom — request ke-6 selalu dapat pesan Indonesia dari kuota DB
-  // (source of truth, tahan multi-instance), bukan 429 generik throttler.
   @Post('public/text')
   @Throttle({ public: { limit: 6, ttl: 3600000 } })
   @ApiOperation({ summary: 'Deteksi teks tanpa login (hanya bisa 5x per jam)' })
@@ -128,7 +122,6 @@ export class DetectionsController {
     return detection;
   }
 
-  // ---------- Admin: semua riwayat + identitas pemilik ----------
 
   @Get('admin/all')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -139,7 +132,6 @@ export class DetectionsController {
     return this.detectionsService.findAllAdmin(query);
   }
 
-  // ---------- Tertaut akun (wajib login) ----------
 
   @Post('upload')
   @UseGuards(JwtAuthGuard)

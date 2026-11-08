@@ -54,7 +54,6 @@ export class DashboardService {
     start.setHours(0, 0, 0, 0);
     start.setDate(start.getDate() - (safeDays - 1));
 
-    // Agregasi di JS (portabel MySQL/SQLite, hindari fn DATE + underscored).
     const rows = await this.detectionModel.findAll({
       attributes: ['result', 'createdAt'],
       where: { createdAt: { [Op.gte]: start } },

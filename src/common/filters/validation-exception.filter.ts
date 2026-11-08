@@ -17,7 +17,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest();
 
-    // Sequelize ORM errors → 409/400 (bukan 500).
     const name = (exception as any)?.name as string | undefined;
     const parent = (exception as any)?.parent as any;
     if (
@@ -96,7 +95,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
         }
       }
 
-      // Teruskan field tambahan (mis. retryAfterSec) + header Retry-After untuk 429.
       const extra =
         typeof exceptionResponse === 'object' && exceptionResponse !== null
           ? { ...(exceptionResponse as Record<string, unknown>) }
@@ -124,7 +122,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       `Unhandled ${request?.method} ${request?.url}: ${(exception as any)?.message || exception}`,
       (exception as any)?.stack,
     );
-    // Jangan bocorkan detail internal + kode DB ke klien.
     const dbMessage = parent?.sqlMessage || (exception as any)?.sqlMessage;
     return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       statusCode: 500,

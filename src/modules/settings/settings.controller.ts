@@ -14,8 +14,6 @@ const AdminGuard = () => UseGuards(JwtAuthGuard, RolesGuard);
 export class SettingsController {
   constructor(private settingsService: SettingsService) {}
 
-  // Rute publik — ditaruh SEBELUM ':key' agar tidak tertelan param.
-  // Dipakai web/mobile (tanpa login) untuk nama aplikasi dkk.
   @Get('public')
   @ApiOperation({ summary: 'Get public app settings (no auth)' })
   @ApiResponse({ status: 200, description: 'Public settings retrieved successfully' })

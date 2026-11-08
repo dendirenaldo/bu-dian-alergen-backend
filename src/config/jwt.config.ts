@@ -1,3 +1,7 @@
+import { Logger } from '@nestjs/common';
+
+const logger = new Logger('JwtConfig');
+
 export const jwtConfig = () => {
   const secret = process.env.JWT_SECRET;
   if (!secret || secret.length < 32) {
@@ -6,8 +10,7 @@ export const jwtConfig = () => {
         'JWT_SECRET belum dikonfigurasi. Set JWT_SECRET minimal 32 karakter di environment.',
       );
     }
-    // eslint-disable-next-line no-console
-    console.warn(
+    logger.warn(
       '[security] JWT_SECRET memakai fallback dev. Set JWT_SECRET minimal 32 karakter.',
     );
   }

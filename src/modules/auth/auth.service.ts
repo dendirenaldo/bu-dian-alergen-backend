@@ -20,7 +20,6 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    // Password di-hash terpusat di UsersService.create (hindari double-hash).
     const user = await this.usersService.create({
       ...dto,
     } as any);
@@ -103,7 +102,6 @@ export class AuthService {
       throw new ConflictException('Password baru tidak boleh sama dengan password lama');
     }
 
-    // Hashing dilakukan di UsersService.update.
     await this.usersService.update(userId, { password: dto.newPassword } as any);
     return { message: 'Password changed successfully' };
   }

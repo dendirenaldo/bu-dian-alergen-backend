@@ -1,7 +1,6 @@
 import { QueryInterface, DataTypes } from 'sequelize';
 
 export async function up(queryInterface: QueryInterface) {
-  // --- Users ---
   await queryInterface.createTable('users', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     email: { type: DataTypes.STRING(255), allowNull: false, unique: true },
@@ -16,7 +15,6 @@ export async function up(queryInterface: QueryInterface) {
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
-  // --- Categories ---
   await queryInterface.createTable('categories', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     name: { type: DataTypes.STRING(255), allowNull: false, unique: true },
@@ -29,7 +27,6 @@ export async function up(queryInterface: QueryInterface) {
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
-  // --- Products ---
   await queryInterface.createTable('products', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     name: { type: DataTypes.STRING(255), allowNull: false },
@@ -57,7 +54,6 @@ export async function up(queryInterface: QueryInterface) {
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
-  // --- Ingredients ---
   await queryInterface.createTable('ingredients', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     product_id: {
@@ -71,7 +67,6 @@ export async function up(queryInterface: QueryInterface) {
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
-  // --- Allergens ---
   await queryInterface.createTable('allergens', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     name: { type: DataTypes.STRING(255), allowNull: false, unique: true },
@@ -85,7 +80,6 @@ export async function up(queryInterface: QueryInterface) {
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
-  // --- Detections ---
   await queryInterface.createTable('detections', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     user_id: {
@@ -113,7 +107,6 @@ export async function up(queryInterface: QueryInterface) {
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
-  // --- Detection Allergens ---
   await queryInterface.createTable('detection_allergens', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     detection_id: {
@@ -134,7 +127,6 @@ export async function up(queryInterface: QueryInterface) {
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
-  // --- Contents ---
   await queryInterface.createTable('contents', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     title: { type: DataTypes.STRING(255), allowNull: false },
@@ -158,7 +150,6 @@ export async function up(queryInterface: QueryInterface) {
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
-  // --- Settings ---
   await queryInterface.createTable('settings', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     key: { type: DataTypes.STRING(255), allowNull: false, unique: true },
@@ -168,7 +159,6 @@ export async function up(queryInterface: QueryInterface) {
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
 
-  // --- Indexes ---
   await queryInterface.addIndex('detections', ['user_id']);
   await queryInterface.addIndex('detections', ['product_id']);
   await queryInterface.addIndex('detections', ['created_at']);
@@ -181,7 +171,6 @@ export async function up(queryInterface: QueryInterface) {
   await queryInterface.addIndex('contents', ['status']);
   await queryInterface.addIndex('contents', ['slug']);
 
-  // --- Seed: 12 standard allergens ---
   await queryInterface.bulkInsert('allergens', [
     { name: 'Gluten', code: 'GLUTEN', description: 'Wheat, barley, rye, oats', severity_level: 'high', color: '#E74C3C', is_active: true, created_at: new Date(), updated_at: new Date() },
     { name: 'Crustaceans', code: 'CRUSTACEANS', description: 'Shrimp, crab, lobster, prawn', severity_level: 'critical', color: '#C0392B', is_active: true, created_at: new Date(), updated_at: new Date() },
@@ -197,7 +186,6 @@ export async function up(queryInterface: QueryInterface) {
     { name: 'Sulphites', code: 'SULPHITES', description: 'Sulphur dioxide and sulphites (concentration >10mg/kg)', severity_level: 'low', color: '#95A5A6', is_active: true, created_at: new Date(), updated_at: new Date() },
   ]);
 
-  // --- Seed: admin user (password: admin123 — bcrypt hash) ---
   await queryInterface.bulkInsert('users', [
     {
       name: 'Administrator',
@@ -210,7 +198,6 @@ export async function up(queryInterface: QueryInterface) {
     },
   ]);
 
-  // --- Seed: default settings ---
   await queryInterface.bulkInsert('settings', [
     { key: 'app_name', value: 'Allergen Detector', type: 'string', description: 'Application name', updated_at: new Date() },
     { key: 'app_description', value: 'Sistem Deteksi Alergen Makanan', type: 'string', description: 'Application description', updated_at: new Date() },

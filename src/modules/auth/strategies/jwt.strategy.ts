@@ -26,7 +26,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user || !user.isActive) {
       throw new UnauthorizedException();
     }
-    // Selalu ambil role dari DB, bukan dari payload (mencegah stale role).
     return { sub: user.id, email: user.email, role: user.role };
   }
 }
