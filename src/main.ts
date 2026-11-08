@@ -35,7 +35,7 @@ async function bootstrap() {
     origin: (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'x-anon-id', 'Idempotency-Key'],
-    exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'Retry-After'],
+    exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'Retry-After', 'X-Job-Id', 'X-Model-Fallback'],
   });
   
   const document = SwaggerModule.createDocument(app, swaggerConfig);

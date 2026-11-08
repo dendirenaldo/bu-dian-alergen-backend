@@ -46,7 +46,7 @@ export class Detection extends Model {
   @Column({ type: DataType.INTEGER, allowNull: true })
   processingTimeMs: number;
 
-  @Column({ type: DataType.ENUM('image_ocr', 'text_input'), allowNull: false })
+  @Column({ type: DataType.STRING(32), allowNull: false })
   detectionMethod: string;
 
   @Column({ type: DataType.TEXT, allowNull: true })
