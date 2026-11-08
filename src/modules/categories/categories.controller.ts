@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -16,8 +17,8 @@ export class CategoriesController {
   @Get()
   @ApiOperation({ summary: 'List all categories' })
   @ApiResponse({ status: 200, description: 'Categories retrieved successfully' })
-  findAll() {
-    return this.categoriesService.findAll();
+  findAll(@Query() query: PaginationQueryDto) {
+    return this.categoriesService.findAll(query);
   }
 
   @Get(':id')

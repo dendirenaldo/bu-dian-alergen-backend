@@ -19,8 +19,9 @@ import { DatasetModule } from './modules/dataset/dataset.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60000, limit: 120 },
-      { name: 'auth', ttl: 60000, limit: 20 },
+      // Moderat: longgar untuk pemakaian normal, kuota publik tetap ketat.
+      { name: 'default', ttl: 60000, limit: 300 },
+      { name: 'auth', ttl: 60000, limit: 60 },
       { name: 'public', ttl: 3600000, limit: 6 },
     ]),
     DatabaseModule,

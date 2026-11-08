@@ -4,7 +4,15 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
 import { Op } from 'sequelize';
+import { buildOrder } from '../../common/utils/sort-order';
 import { User } from './models/user.model';
+
+const USER_SORTABLE: Record<string, string> = {
+  name: 'name',
+  email: 'email',
+  role: 'role',
+  createdAt: 'createdAt',
+};
 import { EmailVerificationToken } from '../auth/models/email-verification-token.model';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -24,7 +32,7 @@ export class UsersService {
     private verificationTokenModel: typeof EmailVerificationToken,
   ) {}
 
-  async findAll(page = 1, limit = 10, verified?: string | boolean) {
+  async findAll(page = 1, limit = 10, verified?: string | boolean, sort?: { sortBy?: string; sortDir?: string }) {
     const offset = (page - 1) * limit;
     const where: any = {};
     if (verified === true || verified === 'true') {
@@ -38,7 +46,7 @@ export class UsersService {
       where,
       offset,
       limit,
-      order: [['createdAt', 'DESC']],
+      order: buildOrder(sort?.sortBy, sort?.sortDir, USER_SORTABLE, [['createdAt', 'DESC']]),
       attributes: { exclude: ['password'] },
     });
     return { data: rows, total: count, page, limit, totalPages: Math.ceil(count / limit) };

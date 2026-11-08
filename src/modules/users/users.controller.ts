@@ -22,11 +22,13 @@ export class UsersController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'verified', required: false, type: String, description: 'Filter verified: true|false' })
+  @ApiQuery({ name: 'sortBy', required: false, type: String, description: 'Kolom sortir: name|email|role|createdAt' })
+  @ApiQuery({ name: 'sortDir', required: false, type: String, description: 'Arah sortir: asc|desc' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   findAll(@Query() query: UsersQueryDto) {
-    return this.usersService.findAll(query.page, query.limit, query.verified);
+    return this.usersService.findAll(query.page, query.limit, query.verified, query);
   }
 
   @Get(':id')

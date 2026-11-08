@@ -7,6 +7,12 @@ import { Ingredient } from '../ingredients/models/ingredient.model';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { slugify } from '../../common/utils/slug.util';
+import { buildOrder } from '../../common/utils/sort-order';
+
+const PRODUCT_SORTABLE: Record<string, string> = {
+  name: 'name',
+  createdAt: 'createdAt',
+};
 
 @Injectable()
 export class ProductsService {
@@ -16,7 +22,7 @@ export class ProductsService {
     @InjectConnection() private sequelize: Sequelize,
   ) {}
 
-  async findAll(page = 1, limit = 10, search?: string) {
+  async findAll(page = 1, limit = 10, search?: string, sort?: { sortBy?: string; sortDir?: string }) {
     const safePage = Number.isFinite(+page) && +page > 0 ? Math.floor(+page) : 1;
     const safeLimit = Number.isFinite(+limit) && +limit > 0 ? Math.min(Math.floor(+limit), 100) : 10;
     const offset = (safePage - 1) * safeLimit;
@@ -34,7 +40,7 @@ export class ProductsService {
       include: ['category', 'ingredients'],
       offset,
       limit: safeLimit,
-      order: [['createdAt', 'DESC']],
+      order: buildOrder(sort?.sortBy, sort?.sortDir, PRODUCT_SORTABLE, [['createdAt', 'DESC']]),
     });
     return { data: rows, total: count, page: safePage, limit: safeLimit, totalPages: Math.ceil(count / safeLimit) };
   }

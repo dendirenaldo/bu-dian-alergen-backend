@@ -32,7 +32,7 @@ export class DatasetController {
 
   @Get('export')
   @Roles(Role.Admin)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Admin: ekspor dataset (default hanya verified) csv/json' })
   async export(@Query() query: DatasetExportQueryDto, @Res() res: Response, @CurrentUser() user: any) {
     await this.datasetService.exportToResponse(query, res, user?.sub);
@@ -40,7 +40,7 @@ export class DatasetController {
 
   @Get('download/estimate')
   @Roles(Role.Admin)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Admin: estimasi ukuran ZIP dataset' })
   estimate(@Query() query: DatasetDownloadQueryDto) {
     return this.datasetService.estimateDownload(query);
@@ -48,7 +48,7 @@ export class DatasetController {
 
   @Get('download')
   @Roles(Role.Admin)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Admin: unduh ZIP dataset (dataset.csv + manifest + images + split + readme)' })
   async download(@Query() query: DatasetDownloadQueryDto, @Res() res: Response, @CurrentUser() user: any) {
     await this.datasetService.downloadToResponse(query, res, user?.sub);

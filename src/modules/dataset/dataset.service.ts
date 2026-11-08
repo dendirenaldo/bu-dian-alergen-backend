@@ -12,6 +12,14 @@ import { Allergen } from '../allergens/models/allergen.model';
 import { Product } from '../products/models/product.model';
 import { User } from '../users/models/user.model';
 import { UpdateDatasetItemDto } from './dto/update-dataset-item.dto';
+import { buildOrder } from '../../common/utils/sort-order';
+
+const DATASET_SORTABLE: Record<string, string> = {
+  id: 'id',
+  createdAt: 'createdAt',
+  status: 'status',
+  goldLabel: 'goldLabel',
+};
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const archiver = require('archiver');
@@ -265,7 +273,7 @@ export class DatasetService {
     return item;
   }
 
-  async findAll(query: { page?: number; limit?: number; status?: string; label?: string; search?: string }) {
+  async findAll(query: { page?: number; limit?: number; status?: string; label?: string; search?: string; sortBy?: string; sortDir?: string }) {
     const safePage = Number.isFinite(+query.page) && +query.page > 0 ? Math.floor(+query.page) : 1;
     const safeLimit =
       Number.isFinite(+query.limit) && +query.limit > 0 ? Math.min(Math.floor(+query.limit), 100) : 10;
@@ -283,7 +291,7 @@ export class DatasetService {
       include: this.datasetInclude(),
       offset,
       limit: safeLimit,
-      order: [['createdAt', 'DESC']],
+      order: buildOrder(query.sortBy, query.sortDir, DATASET_SORTABLE, [['createdAt', 'DESC']]),
     });
     return {
       data: rows,

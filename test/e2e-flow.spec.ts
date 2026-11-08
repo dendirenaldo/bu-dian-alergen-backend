@@ -273,6 +273,25 @@ describe('E2E: register → login → deteksi → riwayat', () => {
     expect(huge.status).toBe(200);
   });
 
+  it('sortir list: valid mengurutkan, tak-terdaftar fallback 200, sortDir invalid 400', async () => {
+    const ok = await request(app.getHttpServer())
+      .get('/api/v1/detections?sortBy=createdAt&sortDir=asc')
+      .set('Authorization', `Bearer ${tokenB}`);
+    expect(ok.status).toBe(200);
+    expect(Array.isArray(ok.body.data)).toBe(true);
+
+    const unknown = await request(app.getHttpServer())
+      .get('/api/v1/detections?sortBy=password&sortDir=asc')
+      .set('Authorization', `Bearer ${tokenB}`);
+    // Kolom tak-terdaftar → fallback order lama, tanpa 500.
+    expect(unknown.status).toBe(200);
+
+    const badDir = await request(app.getHttpServer())
+      .get('/api/v1/detections?sortBy=createdAt&sortDir=sideways')
+      .set('Authorization', `Bearer ${tokenB}`);
+    expect(badDir.status).toBe(400);
+  });
+
   it('settings publik: tanpa token 200 + app_name, admin detail tetap terkunci', async () => {
     const pub = await request(app.getHttpServer()).get('/api/v1/settings/public');
     expect(pub.status).toBe(200);

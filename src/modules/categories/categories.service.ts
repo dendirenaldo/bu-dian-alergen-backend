@@ -5,6 +5,14 @@ import { Category } from './models/category.model';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { slugify } from '../../common/utils/slug.util';
+import { buildOrder } from '../../common/utils/sort-order';
+
+const CATEGORY_SORTABLE: Record<string, string> = {
+  name: 'name',
+  slug: 'slug',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+};
 
 @Injectable()
 export class CategoriesService {
@@ -14,10 +22,10 @@ export class CategoriesService {
     @InjectConnection() private sequelize: Sequelize,
   ) {}
 
-  async findAll() {
+  async findAll(sort?: { sortBy?: string; sortDir?: string }) {
     return this.categoryModel.findAll({
       where: { isActive: true },
-      order: [['sortOrder', 'ASC']],
+      order: buildOrder(sort?.sortBy, sort?.sortDir, CATEGORY_SORTABLE, [['sortOrder', 'ASC']]),
     });
   }
 

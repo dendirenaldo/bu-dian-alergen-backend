@@ -372,7 +372,7 @@ export class DetectionsController {
     @CurrentUser() user: any,
     @Query() pagination: PaginationQueryDto,
   ) {
-    return this.detectionsService.findAllByUser(user.sub, pagination.page, pagination.limit);
+    return this.detectionsService.findAllByUser(user.sub, pagination.page, pagination.limit, pagination);
   }
 
   @Get(':id')

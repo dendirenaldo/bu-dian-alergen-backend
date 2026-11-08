@@ -6,6 +6,14 @@ import { UpdateContentDto } from './dto/update-content.dto';
 import { ContentsQueryDto } from './dto/contents-query.dto';
 import { ContentStatus } from '../../common/enums/content.enum';
 import { slugify } from '../../common/utils/slug.util';
+import { buildOrder } from '../../common/utils/sort-order';
+
+const CONTENT_SORTABLE: Record<string, string> = {
+  title: 'title',
+  status: 'status',
+  publishedAt: 'publishedAt',
+  createdAt: 'createdAt',
+};
 
 @Injectable()
 export class ContentsService {
@@ -22,7 +30,10 @@ export class ContentsService {
     } else if (!isAdmin) {
       where.status = ContentStatus.Published;
     }
-    return this.contentModel.findAll({ where, order: [['createdAt', 'DESC']] });
+    return this.contentModel.findAll({
+      where,
+      order: buildOrder((query as any)?.sortBy, (query as any)?.sortDir, CONTENT_SORTABLE, [['createdAt', 'DESC']]),
+    });
   }
 
   async findBySlug(slug: string, isAdmin = false) {

@@ -27,6 +27,13 @@ import { Allergen } from '../allergens/models/allergen.model';
 import { Product } from '../products/models/product.model';
 import { User } from '../users/models/user.model';
 import { DEFAULT_DETECTION_MODEL, DETECTION_MODELS, DetectionModelChoice } from './dto/detect-model.query';
+import { buildOrder } from '../../common/utils/sort-order';
+
+const DETECTION_SORTABLE: Record<string, string> = {
+  id: 'id',
+  createdAt: 'createdAt',
+  result: 'result',
+};
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const FormData = require('form-data');
@@ -1104,7 +1111,7 @@ export class DetectionsService {
     return { detection, remaining };
   }
 
-  async findAllByUser(userId: number, page = 1, limit = 10) {
+  async findAllByUser(userId: number, page = 1, limit = 10, sort?: { sortBy?: string; sortDir?: string }) {
     const safePage = Number.isFinite(+page) && +page > 0 ? Math.floor(+page) : 1;
     const safeLimit =
       Number.isFinite(+limit) && +limit > 0 ? Math.min(Math.floor(+limit), 100) : 10;
@@ -1121,7 +1128,7 @@ export class DetectionsService {
       ],
       offset,
       limit: safeLimit,
-      order: [['createdAt', 'DESC']],
+      order: buildOrder(sort?.sortBy, sort?.sortDir, DETECTION_SORTABLE, [['createdAt', 'DESC']]),
     });
     return {
       data: rows,
@@ -1133,7 +1140,7 @@ export class DetectionsService {
   }
 
   /** Admin: semua riwayat + identitas pemilik (pengguna / tamu). */
-  async findAllAdmin(query: { page?: number; limit?: number; userId?: number; result?: string; search?: string }) {
+  async findAllAdmin(query: { page?: number; limit?: number; userId?: number; result?: string; search?: string; sortBy?: string; sortDir?: string }) {
     const safePage = Number.isFinite(+query.page) && +query.page > 0 ? Math.floor(+query.page) : 1;
     const safeLimit =
       Number.isFinite(+query.limit) && +query.limit > 0 ? Math.min(Math.floor(+query.limit), 100) : 10;
@@ -1169,7 +1176,7 @@ export class DetectionsService {
       ],
       offset,
       limit: safeLimit,
-      order: [['createdAt', 'DESC']],
+      order: buildOrder(query.sortBy, query.sortDir, DETECTION_SORTABLE, [['createdAt', 'DESC']]),
     });
     return {
       data: rows,

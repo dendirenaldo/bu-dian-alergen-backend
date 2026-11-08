@@ -4,6 +4,14 @@ import { Op } from 'sequelize';
 import { Allergen } from './models/allergen.model';
 import { CreateAllergenDto } from './dto/create-allergen.dto';
 import { UpdateAllergenDto } from './dto/update-allergen.dto';
+import { buildOrder } from '../../common/utils/sort-order';
+
+const ALLERGEN_SORTABLE: Record<string, string> = {
+  name: 'name',
+  code: 'code',
+  severityLevel: 'severityLevel',
+  createdAt: 'createdAt',
+};
 
 @Injectable()
 export class AllergensService {
@@ -12,10 +20,10 @@ export class AllergensService {
     private allergenModel: typeof Allergen,
   ) {}
 
-  async findAll() {
+  async findAll(sort?: { sortBy?: string; sortDir?: string }) {
     return this.allergenModel.findAll({
       where: { isActive: true },
-      order: [['name', 'ASC']],
+      order: buildOrder(sort?.sortBy, sort?.sortDir, ALLERGEN_SORTABLE, [['name', 'ASC']]),
     });
   }
 

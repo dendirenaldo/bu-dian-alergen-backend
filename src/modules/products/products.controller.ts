@@ -19,7 +19,7 @@ export class ProductsController {
   @ApiOperation({ summary: 'List products' })
   @ApiResponse({ status: 200, description: 'Products retrieved successfully' })
   findAll(@Query() query: ProductsQueryDto) {
-    return this.productsService.findAll(query.page ?? 1, query.limit ?? 10, query.search);
+    return this.productsService.findAll(query.page ?? 1, query.limit ?? 10, query.search, query);
   }
 
   @Get(':id')

@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { AllergensService } from './allergens.service';
 import { CreateAllergenDto } from './dto/create-allergen.dto';
@@ -16,8 +17,8 @@ export class AllergensController {
   @Get()
   @ApiOperation({ summary: 'List all allergens' })
   @ApiResponse({ status: 200, description: 'Allergens retrieved successfully' })
-  findAll() {
-    return this.allergensService.findAll();
+  findAll(@Query() query: PaginationQueryDto) {
+    return this.allergensService.findAll(query);
   }
 
   @Get(':id')

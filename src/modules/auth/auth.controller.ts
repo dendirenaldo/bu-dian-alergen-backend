@@ -19,7 +19,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  @Throttle({ auth: { limit: 10, ttl: 60000 } })
+  @Throttle({ auth: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Register new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
@@ -29,7 +29,7 @@ export class AuthController {
   }
 
   @Post('login')
-  @Throttle({ auth: { limit: 20, ttl: 60000 } })
+  @Throttle({ auth: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Login user' })
   @ApiResponse({ status: 200, description: 'User logged in successfully' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
@@ -40,7 +40,7 @@ export class AuthController {
 
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Verify email with token (single use)' })
   @ApiResponse({ status: 200, description: 'Email verified successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or expired token / already verified' })
@@ -50,7 +50,7 @@ export class AuthController {
 
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @ApiOperation({ summary: 'Resend verification link (always 200 unless already verified)' })
   @ApiResponse({ status: 200, description: 'Verification link sent if eligible' })
   @ApiResponse({ status: 400, description: 'Email already verified' })
@@ -60,7 +60,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @ApiOperation({ summary: 'Request password reset link (always 200)' })
   @ApiResponse({ status: 200, description: 'Reset link sent if email registered' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {

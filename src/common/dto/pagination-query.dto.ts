@@ -1,4 +1,4 @@
-import { IsOptional, IsInt, Min, Max } from 'class-validator';
+import { IsIn, IsOptional, IsInt, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -17,4 +17,15 @@ export class PaginationQueryDto {
   @Min(1)
   @Max(100)
   limit?: number = 10;
+
+  @ApiPropertyOptional({ description: 'Kunci kolom sortir (whitelist per modul)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  sortBy?: string;
+
+  @ApiPropertyOptional({ enum: ['asc', 'desc'], description: 'Arah sortir (default desc modul)' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'], { message: 'sortDir harus asc atau desc' })
+  sortDir?: 'asc' | 'desc';
 }
