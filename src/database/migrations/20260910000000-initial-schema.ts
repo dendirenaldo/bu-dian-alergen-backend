@@ -11,6 +11,7 @@ export async function up(queryInterface: QueryInterface) {
     role: { type: DataTypes.ENUM('admin', 'user'), defaultValue: 'user' },
     is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
     last_login_at: { type: DataTypes.DATE, allowNull: true },
+    email_verified_at: { type: DataTypes.DATE, allowNull: true },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   });
