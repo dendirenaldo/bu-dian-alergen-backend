@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam, ApiResponse } from '@ne
 import { SettingsService } from './settings.service';
 import { UpdateSettingDto } from './dto/update-setting.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Public } from '../../common/decorators/public.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
@@ -15,6 +16,7 @@ export class SettingsController {
   constructor(private settingsService: SettingsService) {}
 
   @Get('public')
+  @Public()
   @ApiOperation({ summary: 'Get public app settings (no auth)' })
   @ApiResponse({ status: 200, description: 'Public settings retrieved successfully' })
   getPublic() {

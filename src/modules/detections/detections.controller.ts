@@ -14,6 +14,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 
 function setAnonCookie(req: Request, res: Response, anonId: string) {
   const existing = (req as any)?.cookies?.['anon_id'];
@@ -60,6 +61,7 @@ export class DetectionsController {
 
 
   @Get('public/quota')
+  @Public()
   @Throttle({ public: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Cek sisa kuota deteksi tanpa login (5x per jam)' })
   async publicQuota(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
@@ -72,6 +74,7 @@ export class DetectionsController {
   }
 
   @Post('public/text')
+  @Public()
   @Throttle({ public: { limit: 6, ttl: 3600000 } })
   @ApiOperation({ summary: 'Deteksi teks tanpa login (hanya bisa 5x per jam)' })
   async publicDetectText(
@@ -119,6 +122,7 @@ export class DetectionsController {
   }
 
   @Post('public/upload')
+  @Public()
   @Throttle({ public: { limit: 6, ttl: 3600000 } })
   @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
@@ -264,6 +268,7 @@ export class DetectionsController {
   }
 
   @Get('stream')
+  @Public()
   @ApiOperation({ summary: 'SSE progres deteksi (kontrak Fase 1) via uploadId' })
   async stream(
     @Query('uploadId') uploadId: string,
@@ -357,6 +362,7 @@ export class DetectionsController {
   }
 
   @Delete('job/:id')
+  @Public()
   @ApiOperation({ summary: 'Batalkan job SSE + refund kuota' })
   async cancelJob(@Param('id') id: string) {
     if (!id?.trim()) throw new BadRequestException('Job id wajib diisi');

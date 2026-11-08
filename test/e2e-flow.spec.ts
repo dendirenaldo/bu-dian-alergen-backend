@@ -292,6 +292,39 @@ describe('E2E: register → login → deteksi → riwayat', () => {
     expect(badDir.status).toBe(400);
   });
 
+  it('throttle per sidik IP+UA: burst 320 request tetap 200 semua (pagu 3000)', async () => {
+    // Di bawah limit lama (120/mnt global) test ini akan 429 — bukti bucket kolaps.
+    // Dengan sidik per-UA + pagu 3000, burst wajar admin tidak boleh kena 429.
+    const statuses: number[] = [];
+    for (let i = 0; i < 320; i++) {
+      const r = await request(app.getHttpServer())
+        .get('/api/v1/settings/public')
+        .set('User-Agent', 'throttle-burst-test/1.0');
+      statuses.push(r.status);
+    }
+    expect(statuses.every((s) => s === 200)).toBe(true);
+  });
+
+  it('throttle: akses tanpa token tetap 401 (bukan 429) — auth jalan duluan', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 40; i++) {
+      const r = await request(app.getHttpServer()).get('/api/v1/users');
+      statuses.push(r.status);
+    }
+    expect(statuses.every((s) => s === 401)).toBe(true);
+  });
+
+  it('health tanpa throttle: dibanjiri tetap 200', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 40; i++) {
+      const r = await request(app.getHttpServer()).get('/api/v1/health');
+      statuses.push(r.status);
+    }
+    expect(statuses.every((s) => s === 200)).toBe(true);
+    const body = await request(app.getHttpServer()).get('/api/v1/health');
+    expect(body.body.status).toBe('ok');
+  });
+
   it('settings publik: tanpa token 200 + app_name, admin detail tetap terkunci', async () => {
     const pub = await request(app.getHttpServer()).get('/api/v1/settings/public');
     expect(pub.status).toBe(200);

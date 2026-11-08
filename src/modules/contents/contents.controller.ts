@@ -5,6 +5,7 @@ import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
 import { ContentsQueryDto } from './dto/contents-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Public } from '../../common/decorators/public.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
@@ -16,12 +17,14 @@ export class ContentsController {
   constructor(private contentsService: ContentsService) {}
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'List contents' })
   findAll(@Query() query: ContentsQueryDto, @CurrentUser() user?: any) {
     return this.contentsService.findAll(query, user?.role === 'admin');
   }
 
   @Get(':slug')
+  @Public()
   @ApiOperation({ summary: 'Get content by slug' })
   findBySlug(@Param('slug') slug: string, @CurrentUser() user?: any) {
     return this.contentsService.findBySlug(slug, user?.role === 'admin');

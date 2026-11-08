@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Public } from '../../common/decorators/public.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
@@ -14,6 +15,7 @@ export class IngredientsController {
   constructor(private ingredientsService: IngredientsService) {}
 
   @Get('products/:productId/ingredients')
+  @Public()
   @ApiOperation({ summary: 'List ingredients by product' })
   @ApiParam({ name: 'productId', type: Number })
   findByProduct(@Param('productId', ParseIntPipe) productId: number) {

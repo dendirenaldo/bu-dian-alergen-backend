@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { Public } from '../../common/decorators/public.decorator';
 import { AllergensService } from './allergens.service';
 import { CreateAllergenDto } from './dto/create-allergen.dto';
 import { UpdateAllergenDto } from './dto/update-allergen.dto';
@@ -15,6 +16,7 @@ export class AllergensController {
   constructor(private allergensService: AllergensService) {}
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'List all allergens' })
   @ApiResponse({ status: 200, description: 'Allergens retrieved successfully' })
   findAll(@Query() query: PaginationQueryDto) {
@@ -22,6 +24,7 @@ export class AllergensController {
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({ summary: 'Get allergen by ID' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'Allergen retrieved successfully' })
