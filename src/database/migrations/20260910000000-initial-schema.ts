@@ -229,7 +229,7 @@ export async function up(queryInterface: QueryInterface) {
   await queryInterface.bulkInsert('users', [
     {
       name: 'Administrator',
-      email: 'admin@budian.id',
+        email: 'admin@allergendetector.id',
       password: '$2b$10$YQ8GvJGKbLBqNiAsH.5hWOuRp.8k9r3uYxYqJxKjXcZ1pYvQzV0e',
       role: 'admin',
       is_active: true,

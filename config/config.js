@@ -8,7 +8,7 @@ module.exports = {
   development: {
     username: DB_USERNAME || 'root',
     password: DB_PASSWORD || 'password',
-    database: DB_DATABASE || 'budian_dev',
+    database: DB_DATABASE || 'allergen_detector_dev',
     host: process.env.DB_HOST || '127.0.0.1',
     port: parseInt(process.env.DB_PORT, 10) || 3306,
     dialect: 'mysql',
@@ -17,7 +17,7 @@ module.exports = {
   test: {
     username: DB_USERNAME || 'root',
     password: DB_PASSWORD || 'password',
-    database: DB_DATABASE || 'budian_test',
+    database: DB_DATABASE || 'allergen_detector_test',
     host: process.env.DB_HOST || '127.0.0.1',
     port: parseInt(process.env.DB_PORT, 10) || 3306,
     dialect: 'mysql',

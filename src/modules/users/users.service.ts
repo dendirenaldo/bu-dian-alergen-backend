@@ -140,7 +140,7 @@ export class UsersService {
 
   private async sendVerificationEmail(to: string, token: string) {
     const base = (process.env.FRONTEND_URL || process.env.APP_URL || '').replace(/\/$/, '');
-    const scheme = (process.env.APP_MOBILE_SCHEME || 'budian').replace(/:\/\/$/, '').trim() || 'budian';
+    const scheme = (process.env.APP_MOBILE_SCHEME || 'allergendetector').replace(/:\/\/$/, '').trim() || 'allergendetector';
     const webLink = base ? `${base}/verify-email?token=${token}` : token;
     const deepLink = `${scheme}://verify-email?token=${token}`;
     const ttl = verificationTtlHours();

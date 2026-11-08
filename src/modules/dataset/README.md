@@ -1,4 +1,4 @@
-# Modul Dataset — Kurasi → Ekspor → Training
+# Modul Dataset (Allergen Detector) — Kurasi → Ekspor → Training
 
 Alur: tarik → koreksi → verify → export → gabung → train.
 

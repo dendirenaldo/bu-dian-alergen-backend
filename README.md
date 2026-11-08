@@ -1,4 +1,4 @@
-# Bu Dian Backend API
+# Allergen Detector Backend API
 
 REST API untuk sistem deteksi alergen makanan. Menyediakan autentikasi, manajemen data produk, dan integrasi dengan ML service untuk deteksi alergen.
 
@@ -44,9 +44,9 @@ Edit `.env` sesuai konfigurasi:
 ```env
 DB_HOST=localhost
 DB_PORT=3306
-DB_USER=budian_user
-DB_PASS=budian_password
-DB_NAME=budian_allergen
+DB_USER=allergen_detector_user
+DB_PASS=allergen_detector_password
+DB_NAME=allergen_detector
 JWT_SECRET=change-this-to-a-secure-secret
 JWT_EXPIRATION=7d
 ML_SERVICE_URL=http://localhost:8000

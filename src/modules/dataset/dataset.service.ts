@@ -661,7 +661,7 @@ export class DatasetService {
         : []),
     ];
     return [
-      'Dataset Ekspor Alergen (Bu Dian)',
+      'Dataset Ekspor Alergen (Allergen Detector)',
       '=================================',
       `Dibuat: ${new Date().toISOString()}`,
       `Filter: status=${status}${label ? `, label=${label}` : ''}`,

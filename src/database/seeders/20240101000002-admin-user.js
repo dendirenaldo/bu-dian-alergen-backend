@@ -7,7 +7,7 @@ module.exports = {
     const hashedPassword = await bcrypt.hash('Admin123', 10);
     await queryInterface.bulkInsert('users', [
       {
-        email: 'admin@budian.id',
+        email: 'admin@allergendetector.id',
         password: hashedPassword,
         name: 'Administrator',
         phone: '08123456789',
@@ -20,6 +20,6 @@ module.exports = {
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.bulkDelete('users', { email: 'admin@budian.id' });
+    await queryInterface.bulkDelete('users', { email: 'admin@allergendetector.id' });
   },
 };

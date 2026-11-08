@@ -171,7 +171,7 @@ export function extractClientIp(req: any): string {
 }
 
 export function hashIp(ip: string): string {
-  const pepper = process.env.FREE_DETECTION_PEPPER || process.env.JWT_SECRET || 'budian-pepper';
+  const pepper = process.env.FREE_DETECTION_PEPPER || process.env.JWT_SECRET || 'allergendetector-pepper';
   return createHash('sha256').update(`${pepper}:${ip}`).digest('hex');
 }
 

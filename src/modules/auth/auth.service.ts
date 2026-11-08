@@ -37,7 +37,7 @@ function isVerificationRequired(): boolean {
 }
 
 function mobileScheme(): string {
-  return (process.env.APP_MOBILE_SCHEME || 'budian').replace(/:\/\/$/, '').trim() || 'budian';
+  return (process.env.APP_MOBILE_SCHEME || 'allergendetector').replace(/:\/\/$/, '').trim() || 'allergendetector';
 }
 
 function webBase(): string {

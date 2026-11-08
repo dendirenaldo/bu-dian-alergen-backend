@@ -1,4 +1,5 @@
 import { Table, Column, Model, DataType, BelongsTo, HasMany, ForeignKey, CreatedAt, UpdatedAt } from 'sequelize-typescript';
+import { parseJsonObject } from '../../../common/utils/json-field';
 import { User } from '../../users/models/user.model';
 import { Product } from '../../products/models/product.model';
 import { DetectionAllergen } from './detection-allergen.model';
@@ -34,7 +35,18 @@ export class Detection extends Model {
   @Column({ type: DataType.TEXT, allowNull: true })
   ocrText: string;
 
-  @Column({ type: DataType.JSON, allowNull: true })
+  @Column({
+    type: DataType.JSON,
+    allowNull: true,
+    // MariaDB mengembalikan JSON sebagai LONGTEXT string — parse defensif agar
+    // konsumen (service/frontend) selalu menerima objek.
+    get(this: any) {
+      return parseJsonObject(this.getDataValue('rawModelOutput'), {});
+    },
+    set(this: any, val: any) {
+      this.setDataValue('rawModelOutput', val ?? null);
+    },
+  })
   rawModelOutput: any;
 
   @Column({ type: DataType.ENUM('safe', 'unsafe'), allowNull: false })
