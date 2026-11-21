@@ -16,6 +16,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { detectImageFormat } from '../../common/utils/image-meta';
 
 function setAnonCookie(req: Request, res: Response, anonId: string) {
   const existing = (req as any)?.cookies?.['anon_id'];
@@ -138,6 +139,9 @@ export class DetectionsController {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Gambar wajib diunggah');
     }
+    if (!detectImageFormat(file.buffer)) {
+      throw new BadRequestException('Isi berkas bukan gambar yang valid');
+    }
     const anonId = ensureAnonId(req);
     setAnonCookie(req, res, anonId);
     const ipHash = hashIp(extractClientIp(req));
@@ -232,6 +236,9 @@ export class DetectionsController {
   ) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Gambar wajib diunggah');
+    }
+    if (!detectImageFormat(file.buffer)) {
+      throw new BadRequestException('Isi berkas bukan gambar yang valid');
     }
     const safe = (file.originalname || 'upload.jpg')
       .replace(/[^a-zA-Z0-9.\-_]/g, '_')

@@ -259,6 +259,22 @@ describe('E2E platform dataset', () => {
     expect(res.body.code).toBe('INVALID_STATUS_TRANSITION');
   });
 
+  it('filter nama alergen (JSON) berfungsi dan case-insensitive', async () => {
+    const upper = await request(app.getHttpServer())
+      .get('/api/v1/dataset-items?allergen=Susu&limit=100')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(upper.status).toBe(200);
+    expect(upper.body.total).toBeGreaterThanOrEqual(1);
+    const lower = await request(app.getHttpServer())
+      .get('/api/v1/dataset-items?allergen=susu&limit=100')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(lower.body.total).toBe(upper.body.total);
+    const none = await request(app.getHttpServer())
+      .get('/api/v1/dataset-items?allergen=TidakAda&limit=100')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(none.body.total).toBe(0);
+  });
+
   it('statistik operasional akurat', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/v1/dataset-items/statistics')
@@ -602,5 +618,26 @@ describe('E2E platform dataset', () => {
     expect(stale.status).toBe(409);
     expect(stale.body.code).toBe('STALE_UPDATE');
   });
+
+  it('menghapus record kanonik membersihkan duplicateOf yang menggantung', async () => {
+    const first = await request(app.getHttpServer())
+      .post('/api/v1/dataset-items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(createPayload({ product_name: 'Dup Canonical', corrected_text: 'komposisi unik kanonik 9f2a', ocr_text: 'komposisi unik kanonik 9f2a' }));
+    const second = await request(app.getHttpServer())
+      .post('/api/v1/dataset-items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(createPayload({ product_name: 'Dup Follower', corrected_text: 'komposisi unik kanonik 9f2a', ocr_text: 'komposisi unik kanonik 9f2a' }));
+    expect(second.body.data.duplicateOf).toBe(first.body.data.id);
+    await request(app.getHttpServer())
+      .delete(`/api/v1/dataset-items/${first.body.data.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    const after = await request(app.getHttpServer())
+      .get(`/api/v1/dataset-items/${second.body.data.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(after.status).toBe(200);
+    expect(after.body.data.duplicateOf).toBeNull();
+  });
+
 
 });

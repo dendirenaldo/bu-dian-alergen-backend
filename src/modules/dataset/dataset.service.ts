@@ -778,6 +778,7 @@ export class DatasetService {
     const uploadsDir = join(process.cwd(), 'uploads');
     await mkdir(uploadsDir, { recursive: true });
     await writeFile(join(uploadsDir, stored), file.buffer);
+    const previousOwned = String(item.storedFilename ?? '');
 
     item.imageUrl = `/uploads/${stored}`;
     item.storedFilename = stored;
@@ -794,6 +795,15 @@ export class DatasetService {
     });
     void issues;
     await item.save();
+    if (previousOwned && previousOwned !== stored) {
+      // Ganti gambar: hapus berkas lama milik record ini (bukan gambar deteksi).
+      try {
+        const oldAbs = join(uploadsDir, basename(previousOwned));
+        if (existsSyncFs(oldAbs)) await unlink(oldAbs);
+      } catch {
+        /* orphan bukan alasan menggagalkan unggah */
+      }
+    }
     await this.audit('image.upload', { datasetId: id, checksum, adminId: adminId ?? null });
     return this.findById(id);
   }

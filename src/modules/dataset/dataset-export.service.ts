@@ -389,8 +389,8 @@ export class DatasetExportService {
         selected: p.selected,
         eligible: p.rows.length,
         excluded: p.excluded.length,
-        images: p.rows.filter((r) => r.image).length,
-        missingImages: p.rows.filter((r) => !r.image).length,
+        images: p.cfg.profile !== 'nlp' && p.cfg.includeImages ? p.rows.filter((r) => r.image).length : 0,
+        missingImages: p.cfg.profile !== 'nlp' && p.cfg.includeImages ? p.rows.filter((r) => !r.image).length : 0,
         labels: {
           safe: p.labelDistribution.safe ?? 0,
           unsafe: p.labelDistribution.unsafe ?? 0,
@@ -403,7 +403,7 @@ export class DatasetExportService {
       warnings: p.warnings,
       integrity: {
         duplicateIds: 0,
-        missingImages: p.rows.filter((r) => !r.image).length,
+        missingImages: p.cfg.profile !== 'nlp' && p.cfg.includeImages ? p.rows.filter((r) => !r.image).length : 0,
         validationErrors: p.validationErrors,
         validationWarnings: p.validationWarnings,
         auditPassed: p.split ? p.split.audit.every((a) => a.status === 'PASS') : true,
@@ -432,7 +432,7 @@ export class DatasetExportService {
       },
       image: r.image && opts.includeImages !== false
         ? {
-            path: `images/original/${r.recordId}.${r.image.ext}`,
+            path: `${opts.imageDir ?? 'images/original'}/${r.recordId}.${r.image.ext}`,
             type: item.imageType ?? null,
             mime: item.imageMime ?? null,
             width: item.imageWidth ?? null,
@@ -528,6 +528,79 @@ export class DatasetExportService {
       );
     }
     return lines.join('\n') + '\n';
+  }
+
+  /** Skema datar untuk NLP/Hugging Face: text string + label + multilabel. */
+  private serializeNlpRecord(r: PreparedRow, splitName?: string) {
+    const gold = String(r.item.goldLabel ?? 'safe');
+    return {
+      record_id: r.recordId,
+      dataset_item_id: r.item.id,
+      text: this.recordTextFor(r),
+      label: gold,
+      label_id: labelToId(gold),
+      multilabel: r.labels,
+      allergens: positiveAllergens(r.item).map((a) => a.name),
+      ingredients: r.ingredients,
+      product_name: r.item.productName ?? null,
+      brand: r.item.brand ?? null,
+      category: r.item.category ?? null,
+      raw_ocr: r.ocrText,
+      split: splitName ?? r.split ?? null,
+    };
+  }
+
+  private serializeNlpRecords(rows: PreparedRow[], format: ExportFormat): string {
+    const objs = rows.map((r) => this.serializeNlpRecord(r));
+    if (format === 'json') return JSON.stringify(objs, null, 2);
+    if (format === 'jsonl') return objs.map((o) => JSON.stringify(o)).join('\n') + (objs.length ? '\n' : '');
+    const header = 'record_id,dataset_item_id,text,label,label_id,multilabel,allergens,ingredients,product_name,brand,category,split';
+    const lines = [header];
+    for (const r of rows) {
+      const o = this.serializeNlpRecord(r);
+      lines.push(
+        csvRow([
+          o.record_id,
+          o.dataset_item_id,
+          o.text,
+          o.label,
+          o.label_id,
+          o.multilabel.join('|'),
+          o.allergens.join('|'),
+          o.ingredients.join('|'),
+          o.product_name ?? '',
+          o.brand ?? '',
+          o.category ?? '',
+          o.split ?? '',
+        ]),
+      );
+    }
+    return lines.join('\n') + '\n';
+  }
+
+  private nlpRecordSchema() {
+    return {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      $id: 'https://allergen-detector.local/schema/nlp.record.schema.json',
+      title: 'Allergen NLP record (flat, Hugging Face friendly)',
+      type: 'object',
+      required: ['record_id', 'dataset_item_id', 'text', 'label', 'label_id', 'multilabel'],
+      properties: {
+        record_id: { type: 'string' },
+        dataset_item_id: { type: 'integer' },
+        text: { type: 'string' },
+        label: { enum: ['safe', 'unsafe'] },
+        label_id: { enum: [0, 1] },
+        multilabel: { type: 'array', items: { type: 'string' } },
+        allergens: { type: 'array', items: { type: 'string' } },
+        ingredients: { type: 'array', items: { type: 'string' } },
+        product_name: { type: ['string', 'null'] },
+        brand: { type: ['string', 'null'] },
+        category: { type: ['string', 'null'] },
+        raw_ocr: { type: 'string' },
+        split: { enum: ['train', 'validation', 'test', null] },
+      },
+    };
   }
 
   private labelsCsv(rows: PreparedRow[], withSplit: boolean): string {
@@ -677,7 +750,7 @@ export class DatasetExportService {
       nlp: `dataset-export/
 ├── README.md
 ├── dataset_manifest.json
-├── schema/record.schema.json
+├── schema/{record,annotation,nlp.record}.schema.json
 ├── text/{raw_ocr,corrected_ocr,normalized_ingredients}.txt
 ├── annotations/{records.<format>,allergens.jsonl}
 ├── splits/{train,validation,test}.<format>
@@ -710,11 +783,12 @@ records = [json.loads(line) for line in (root / "annotations/records.jsonl").rea
 print(manifest["counts"], records[0]["record_id"])
 \`\`\``,
       nlp: `## Hugging Face / IndoBERT (multi-label)
+Skema NLP datar: \`text\` string, \`multilabel\` daftar label positif.
 \`\`\`python
 from datasets import load_dataset
 ds = load_dataset("json", data_files={"train": "dataset-export/splits/train.jsonl"})
-def to_features(ex):
-    return {"text": ex["text"], "labels": [1.0 if a["present"] else 0.0 for a in ex["allergens"]]}
+# text: string, label: string, label_id: int, multilabel: list[str]
+ds = ds.map(lambda ex: {"labels": ex["multilabel"]})
 \`\`\`
 
 ## BiLSTM / PyTorch
@@ -727,11 +801,11 @@ class IngredientDataset(Dataset):
     def __len__(self): return len(self.rows)
     def __getitem__(self, i):
         r = self.rows[i]
-        return {"text": r["text"], "label": r["label"]["label_id"]}
+        return {"text": r["text"], "label": r["label_id"], "multilabel": r["multilabel"]}
 \`\`\`
 
-> Label multi-label: gunakan \`label.multilabel\` / daftar \`allergens\`,
-> jangan memaksa satu kelas eksklusif.`,
+> Gunakan \`multilabel\`; jangan memaksa satu kelas eksklusif.
+> Anotasi \`absent\`/\`unknown\` tidak termasuk label positif.`,
       image_classification: `## PyTorch / torchvision
 \`\`\`python
 import pandas as pd
@@ -884,12 +958,15 @@ ${examples[profile]}
         'text/normalized_ingredients.txt',
         p.rows.map((r) => `${r.recordId}\t${r.ingredients.join(', ')}`).join('\n') + '\n',
       );
-      pushContent(format === 'csv' ? 'annotations/records.csv' : format === 'json' ? 'annotations/records.json' : 'annotations/records.jsonl', allRecords);
+      const nlpRecords = this.serializeNlpRecords(p.rows, format);
+      pushContent(format === 'csv' ? 'annotations/records.csv' : format === 'json' ? 'annotations/records.json' : 'annotations/records.jsonl', nlpRecords);
       pushContent('annotations/allergens.jsonl', allergenLines);
       if (p.cfg.includeSplits && p.split) {
         for (const b of ['train', 'validation', 'test'] as const) {
-          const subset = this.splitRows(p.rows, b);
-          pushContent(`splits/${b}.${format === 'csv' ? 'csv' : format === 'json' ? 'json' : 'jsonl'}`, this.serializeRecords(subset, format, { includeImages: p.cfg.includeImages }));
+          pushContent(
+            `splits/${b}.${format === 'csv' ? 'csv' : format === 'json' ? 'json' : 'jsonl'}`,
+            this.serializeNlpRecords(this.splitRows(p.rows, b), format),
+          );
         }
       }
     }
@@ -948,6 +1025,9 @@ ${examples[profile]}
     if (p.cfg.includeSchema) {
       pushContent('schema/record.schema.json', JSON.stringify(this.recordSchema(), null, 2));
       pushContent('schema/annotation.schema.json', JSON.stringify(this.annotationSchema(), null, 2));
+      if (profile === 'nlp') {
+        pushContent('schema/nlp.record.schema.json', JSON.stringify(this.nlpRecordSchema(), null, 2));
+      }
     }
 
     const exportId = `exp_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}_${createHash('sha256')
