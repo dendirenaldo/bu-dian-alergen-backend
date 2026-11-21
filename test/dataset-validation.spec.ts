@@ -87,6 +87,20 @@ describe('validasi dataset', () => {
     expect(allergenLabelSet(r)).toEqual(['allergen_kacang', 'unsafe']);
   });
 
+  test('label multilabel hanya memuat keberadaan positif, bukan absent/unknown', () => {
+    const r = record({
+      goldLabel: 'unsafe',
+      correctedAllergens: [
+        { name: 'Susu', severity: 'medium', confidence: 0.9, presence: 'present' },
+        { name: 'Kedelai', severity: 'low', confidence: 0.4, presence: 'absent' },
+        { name: 'Kacang', severity: 'low', confidence: 0.2, presence: 'unknown' },
+        { name: 'Gluten', severity: 'high', confidence: 0.6, presence: 'may_contain' },
+      ],
+    });
+    expect(allergenLabelSet(r)).toEqual(['allergen_gluten', 'allergen_susu', 'unsafe']);
+    expect(positiveAllergens(r).map((a) => a.name)).toEqual(['Susu', 'Gluten']);
+  });
+
   test('normalizeAllergens mengisi default presence & menjepit confidence', () => {
     const out = normalizeAllergens([
       { name: ' Susu ', severity: 'invalid', confidence: 2 },

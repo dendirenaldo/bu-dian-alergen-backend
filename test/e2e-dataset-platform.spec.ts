@@ -8,7 +8,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SequelizeModule, getModelToken } from '@nestjs/sequelize';
 import { ConfigModule } from '@nestjs/config';
 import { join } from 'node:path';
-import { existsSync, unlinkSync } from 'node:fs';
+import { existsSync, unlinkSync, writeFileSync, mkdirSync } from 'node:fs';
 import request = require('supertest');
 
 import { AuthModule } from '../src/modules/auth/auth.module';
@@ -314,6 +314,21 @@ describe('E2E platform dataset', () => {
     );
   });
 
+  it('filter status koma dan pratinjau ekspor multi-status diterima', async () => {
+    const list = await request(app.getHttpServer())
+      .get('/api/v1/dataset-items?status=approved,verified&limit=10')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(list.status).toBe(200);
+    expect(list.body.total).toBeGreaterThanOrEqual(1);
+
+    const preview = await request(app.getHttpServer())
+      .post('/api/v1/dataset-items/exports/preview')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ profile: 'nlp', status: 'approved,verified', includeImages: false });
+    expect([200, 201]).toContain(preview.status);
+    expect(preview.body.data.counts.eligible).toBeGreaterThanOrEqual(1);
+  });
+
   it('ekspor NLP menghasilkan ZIP + manifest + riwayat', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/dataset-items/exports')
@@ -444,6 +459,148 @@ describe('E2E platform dataset', () => {
       .send({ notes: 'Promosi admin' });
     expect([200, 201]).toContain(admin.status);
     expect(admin.body.data.source).toBe('detection');
+  });
+
+
+  it('create status=verified mencatat verifier dan waktu', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/dataset-items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(
+        createPayload({
+          product_name: 'Verified With Actor',
+          status: 'verified',
+          corrected_allergens: [{ name: 'Susu', severity: 'medium', confidence: 0.9, presence: 'present' }],
+        }),
+      );
+    expect(res.status).toBe(201);
+    expect(res.body.data.status).toBe('verified');
+    expect(res.body.data.verifiedBy).toBeGreaterThan(0);
+    expect(res.body.data.verifiedAt).toBeTruthy();
+    expect(res.body.data.reviewedBy).toBeGreaterThan(0);
+    expect(res.body.data.reviewedAt).toBeTruthy();
+  });
+
+  it('unggah gambar: valid diterima, isi rusak & MIME spoof ditolak', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/dataset-items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(createPayload({ product_name: 'Image Validation' }));
+    const id = created.body.data.id;
+
+    const corrupt = await request(app.getHttpServer())
+      .post(`/api/v1/dataset-items/${id}/image`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('image', Buffer.from('not-an-image'), { filename: 'broken.png', contentType: 'image/png' });
+    expect(corrupt.status).toBe(400);
+    expect(corrupt.body.code).toBe('INVALID_IMAGE_CONTENT');
+
+    const spoof = await request(app.getHttpServer())
+      .post(`/api/v1/dataset-items/${id}/image`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('image', Buffer.from('<html><script>x</script></html>'), { filename: 'evil.png', contentType: 'image/png' });
+    expect(spoof.status).toBe(400);
+    expect(spoof.body.code).toBe('INVALID_IMAGE_CONTENT');
+
+    const valid = await request(app.getHttpServer())
+      .post(`/api/v1/dataset-items/${id}/image`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('image', PNG_1PX, { filename: 'ok.png', contentType: 'image/png' });
+    expect(valid.status).toBe(201);
+    expect(valid.body.data.imageWidth).toBe(1);
+    expect(valid.body.data.imageChecksum).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('kontribusi bersamaan untuk deteksi yang sama: satu sukses, satu 409', async () => {
+    const detection: any = await detectionRepo.create({
+      userId: normalUserId,
+      result: 'safe',
+      confidenceScore: 0.9,
+      detectionMethod: 'text_input',
+      modelName: 'bilstm',
+      ocrText: 'air mineral',
+    } as any);
+    const send = () =>
+      request(app.getHttpServer())
+        .post(`/api/v1/detections/${detection.id}/contribute`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({});
+    const [a, b] = await Promise.all([send(), send()]);
+    const statuses = [a.status, b.status].sort();
+    expect(statuses).toEqual([201, 409]);
+    const count = await request(app.getHttpServer())
+      .get(`/api/v1/dataset-items?search=air%20mineral`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    const rows = count.body.data.filter((r: any) => r.detectionId === detection.id);
+    expect(rows).toHaveLength(1);
+  });
+
+  it('menghapus record promosi tidak menghapus gambar deteksi bersama', async () => {
+    mkdirSync(join(process.cwd(), 'uploads'), { recursive: true });
+    const shared = join(process.cwd(), 'uploads', 'e2e-shared-detection.png');
+    writeFileSync(shared, PNG_1PX);
+    const detection: any = await detectionRepo.create({
+      userId: normalUserId,
+      result: 'unsafe',
+      confidenceScore: 0.9,
+      detectionMethod: 'image_ocr',
+      modelName: 'bilstm',
+      ocrText: 'komposisi: susu',
+      imageUrl: '/uploads/e2e-shared-detection.png',
+    } as any);
+    const promoted = await request(app.getHttpServer())
+      .post(`/api/v1/detections/${detection.id}/contribute`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({});
+    expect(promoted.status).toBe(201);
+    const del = await request(app.getHttpServer())
+      .delete(`/api/v1/dataset-items/${promoted.body.data.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(del.status).toBe(200);
+    expect(existsSync(shared)).toBe(true);
+    unlinkSync(shared);
+  });
+
+  it('koreksi manusia atas anotasi model mengubah provenance menjadi hybrid', async () => {
+    const detection: any = await detectionRepo.create({
+      userId: normalUserId,
+      result: 'unsafe',
+      confidenceScore: 0.9,
+      detectionMethod: 'text_input',
+      modelName: 'bilstm',
+      ocrText: 'komposisi: susu bubuk',
+    } as any);
+    const contributed = await request(app.getHttpServer())
+      .post(`/api/v1/detections/${detection.id}/contribute`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({});
+    expect(contributed.body.data.annotationSource).toBe('model');
+    const updated = await request(app.getHttpServer())
+      .patch(`/api/v1/dataset-items/${contributed.body.data.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ corrected_allergens: [{ name: 'Susu', severity: 'medium', confidence: 0.95, presence: 'present' }] });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.annotationSource).toBe('hybrid');
+    expect(updated.body.data.annotatorId).toBeGreaterThan(0);
+  });
+
+  it('optimistic concurrency: update dengan versi lama ditolak 409', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/dataset-items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(createPayload({ product_name: 'Concurrency Test' }));
+    const id = created.body.data.id;
+    const first = await request(app.getHttpServer())
+      .patch(`/api/v1/dataset-items/${id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ notes: 'first edit', expected_updated_at: created.body.data.updatedAt });
+    expect(first.status).toBe(200);
+    const stale = await request(app.getHttpServer())
+      .patch(`/api/v1/dataset-items/${id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ notes: 'stale edit', expected_updated_at: created.body.data.updatedAt });
+    expect(stale.status).toBe(409);
+    expect(stale.body.code).toBe('STALE_UPDATE');
   });
 
 });

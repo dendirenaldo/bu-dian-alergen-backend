@@ -27,7 +27,7 @@ export class DatasetItem extends Model {
   id: number;
 
   @ForeignKey(() => Detection)
-  @Column({ type: DataType.INTEGER, allowNull: true, onDelete: 'SET NULL', onUpdate: 'CASCADE' })
+  @Column({ type: DataType.INTEGER, allowNull: true, unique: true, onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   detectionId: number;
 
   @Column({ type: DataType.STRING(32), allowNull: false, defaultValue: 'detection' })

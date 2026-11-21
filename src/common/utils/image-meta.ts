@@ -5,6 +5,24 @@ export interface ImageDimensions {
   height: number;
 }
 
+/** Deteksi format dari magic bytes (bukan dari nama/MIME klien). */
+export function detectImageFormat(buf: Buffer): 'png' | 'jpeg' | 'gif' | 'bmp' | 'webp' | null {
+  if (!buf || buf.length < 12) return null;
+  if (buf[0] === 0x89 && buf.toString('ascii', 1, 4) === 'PNG') return 'png';
+  if (buf[0] === 0xff && buf[1] === 0xd8) return 'jpeg';
+  if (buf.toString('ascii', 0, 3) === 'GIF') return 'gif';
+  if (buf.toString('ascii', 0, 2) === 'BM') return 'bmp';
+  if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+  return null;
+}
+
+/** Format yang kompatibel untuk ekstensi yang diterima. */
+export function formatMatchesExt(format: string | null, ext: string): boolean {
+  if (!format) return false;
+  const e = ext === 'jpg' ? 'jpeg' : ext;
+  return format === e;
+}
+
 export function sha256Buffer(buf: Buffer): string {
   return createHash('sha256').update(buf).digest('hex');
 }

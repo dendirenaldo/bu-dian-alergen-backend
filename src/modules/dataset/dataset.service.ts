@@ -38,7 +38,13 @@ import {
   normalizeAllergens,
   qualityFromIssues,
 } from './dataset-validation.service';
-import { readImageDimensions, safeStoredFilename, sha256Buffer } from '../../common/utils/image-meta';
+import {
+  detectImageFormat,
+  formatMatchesExt,
+  readImageDimensions,
+  safeStoredFilename,
+  sha256Buffer,
+} from '../../common/utils/image-meta';
 import { mkdir, writeFile, unlink } from 'fs/promises';
 import { existsSync as existsSyncFs } from 'fs';
 
@@ -75,6 +81,10 @@ function httpError(
 }
 
 /** Teks record: koreksi manusia diutamakan, fallback OCR mentah. */
+function isUniqueViolation(e: any): boolean {
+  return e?.name === 'SequelizeUniqueConstraintError' || e?.original?.code === 'ER_DUP_ENTRY' || e?.code === 'SQLITE_CONSTRAINT';
+}
+
 export function datasetRowText(item: any): string {
   const t =
     item?.correctedText ??
@@ -301,11 +311,32 @@ export class DatasetService {
     }
 
     const targetStatus = String(values.status);
+    if (targetStatus === 'verified') {
+      // Status verified harus selalu punya aktor + waktu; jangan buat record
+      // "terverifikasi" tanpa jejak siapa/kapan.
+      values.verifiedBy = adminId ?? null;
+      values.verifiedAt = new Date();
+      values.reviewedBy = adminId ?? null;
+      values.reviewedAt = new Date();
+    }
     const requireComplete = ['pending_review', 'verified', 'approved'].includes(targetStatus);
     const issues = await this.evaluateRecord(values, { requireComplete });
     if (!dto.allow_incomplete && requireComplete) await this.assertCompleteOrThrow(values, issues);
 
-    const item = await this.datasetModel.create(values);
+    let item: any;
+    try {
+      item = await this.datasetModel.create(values);
+    } catch (e) {
+      if (values.detectionId && isUniqueViolation(e)) {
+        httpError(
+          HttpStatus.CONFLICT,
+          'Deteksi ini sudah memiliki record dataset',
+          'ALREADY_CONTRIBUTED',
+          [{ field: 'detection_id', message: 'Sudah ada record dataset untuk deteksi ini' }],
+        );
+      }
+      throw e;
+    }
     await this.audit('create', { datasetId: (item as any).id, source: values.source, adminId: adminId ?? null });
     return this.findById((item as any).id);
   }
@@ -356,7 +387,17 @@ export class DatasetService {
     };
     await this.evaluateRecord(values, { requireComplete: false });
 
-    const item = await this.datasetModel.create(values);
+    let item: any;
+    try {
+      item = await this.datasetModel.create(values);
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        // Balapan dua permintaan: record sudah dibuat pihak lain.
+        const raced = await this.datasetModel.findOne({ where: { detectionId } });
+        if (raced) return raced;
+      }
+      throw e;
+    }
     await this.audit('upsert', { detectionId, datasetId: (item as any).id, adminId: adminId ?? null });
     return item;
   }
@@ -442,7 +483,20 @@ export class DatasetService {
       exportEligible: true,
     };
     await this.evaluateRecord(values, { requireComplete: false });
-    const item = await this.datasetModel.create(values);
+    let item: any;
+    try {
+      item = await this.datasetModel.create(values);
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        httpError(
+          HttpStatus.CONFLICT,
+          'Deteksi ini sudah dikontribusikan ke dataset',
+          'ALREADY_CONTRIBUTED',
+          [{ field: 'detection_id', message: 'Sudah ada record dataset untuk deteksi ini' }],
+        );
+      }
+      throw e;
+    }
     await this.audit('contribute', {
       detectionId,
       datasetId: (item as any).id,
@@ -524,11 +578,26 @@ export class DatasetService {
 
   async update(id: number, dto: UpdateDatasetItemDto, adminId?: number) {
     const item: any = await this.findById(id);
+    if (dto.expected_updated_at) {
+      const expected = new Date(dto.expected_updated_at).getTime();
+      const actual = item.updatedAt ? new Date(item.updatedAt).getTime() : null;
+      if (actual !== null && Number.isFinite(expected) && expected !== actual) {
+        httpError(
+          HttpStatus.CONFLICT,
+          'Record sudah diubah oleh pengguna lain. Muat ulang sebelum menyimpan.',
+          'STALE_UPDATE',
+          [{ field: 'expected_updated_at', message: 'Versi record tidak lagi terbaru' }],
+        );
+      }
+    }
 
     if (dto.corrected_allergens !== undefined) {
       await this.assertKnownAllergens(dto.corrected_allergens ?? []);
       item.correctedAllergens = normalizeAllergens(dto.corrected_allergens ?? []);
-      item.annotationSource = item.annotationSource ?? 'human';
+      // Koreksi manusia atas anotasi model/impor harus tercatat sebagai
+      // hybrid — bukan tetap "model" (menyesatkan provenance).
+      const prevSource = String(item.annotationSource ?? '');
+      item.annotationSource = prevSource === 'model' || prevSource === 'import' ? 'hybrid' : prevSource || 'human';
       item.annotatorId = adminId ?? item.annotatorId ?? null;
       item.annotatedAt = new Date();
     }
@@ -615,7 +684,11 @@ export class DatasetService {
     }
     const result = await this.update(
       id,
-      { status: target[dto.action], review_note: dto.note ?? undefined } as UpdateDatasetItemDto,
+      {
+        status: target[dto.action],
+        review_note: dto.note ?? undefined,
+        expected_updated_at: dto.expected_updated_at,
+      } as UpdateDatasetItemDto,
       adminId,
     );
     await this.audit('review', { datasetId: id, action: dto.action, adminId: adminId ?? null });
@@ -625,10 +698,14 @@ export class DatasetService {
   async remove(id: number, adminId?: number) {
     const item: any = await this.findById(id);
     const url = item.imageUrl ?? item.image_url ?? null;
+    const owned = String(item.storedFilename ?? '');
     await item.destroy();
-    if (url) {
+    // Hanya hapus berkas yang diunggah langsung untuk record ini. Record hasil
+    // promosi memakai gambar deteksi bersama; menghapusnya akan merusak
+    // deteksi asli (data loss).
+    if (url && owned && basename(String(url)) === owned) {
       try {
-        const abs = join(process.cwd(), 'uploads', basename(String(url)));
+        const abs = join(process.cwd(), 'uploads', basename(owned));
         if (existsSyncFs(abs)) await unlink(abs);
       } catch {
         /* gagal hapus berkas bukan alasan menggagalkan hapus record */
@@ -670,8 +747,20 @@ export class DatasetService {
       httpError(HttpStatus.BAD_REQUEST, 'Ekstensi gambar harus JPG/PNG/WEBP/GIF/BMP', 'INVALID_IMAGE_EXT');
     }
     const ext = extMatch === 'jpeg' ? 'jpg' : extMatch;
-    const checksum = sha256Buffer(file.buffer);
+    // Jangan percaya MIME/nama dari klien: validasi magic bytes + dimensi.
+    const format = detectImageFormat(file.buffer);
+    if (!format || !formatMatchesExt(format, ext)) {
+      httpError(
+        HttpStatus.BAD_REQUEST,
+        'Isi berkas bukan gambar yang valid atau tidak cocok dengan ekstensinya',
+        'INVALID_IMAGE_CONTENT',
+      );
+    }
     const dims = readImageDimensions(file.buffer);
+    if (!dims) {
+      httpError(HttpStatus.BAD_REQUEST, 'Gambar rusak atau tidak dapat dibaca', 'INVALID_IMAGE_CONTENT');
+    }
+    const checksum = sha256Buffer(file.buffer);
     const stored = safeStoredFilename(`ds${id}`, file.originalname, mime, ext);
     const uploadsDir = join(process.cwd(), 'uploads');
     await mkdir(uploadsDir, { recursive: true });
@@ -746,7 +835,10 @@ export class DatasetService {
       const list = parseJsonArray(r.correctedAllergens ?? r.corrected_allergens, []);
       for (const a of list) {
         const name = String(a?.name ?? '').trim();
-        if (name) allergenMap.set(name, (allergenMap.get(name) ?? 0) + 1);
+        const presence = String(a?.presence ?? 'present');
+        if (name && ['present', 'may_contain', 'cross_contamination'].includes(presence)) {
+          allergenMap.set(name, (allergenMap.get(name) ?? 0) + 1);
+        }
       }
       if (!r.imageUrl) missingImage += 1;
       if (!String(r.correctedText ?? r.ocrText ?? '').trim()) missingText += 1;

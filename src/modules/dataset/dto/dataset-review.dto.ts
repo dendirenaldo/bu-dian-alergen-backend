@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export const REVIEW_ACTIONS = [
@@ -25,4 +25,9 @@ export class DatasetReviewDto {
   @IsString()
   @MaxLength(2000, { message: 'Catatan review maksimal 2000 karakter' })
   note?: string;
+
+  @ApiPropertyOptional({ description: 'updatedAt yang dilihat reviewer (optimistic concurrency)' })
+  @IsOptional()
+  @IsISO8601({}, { message: 'expected_updated_at harus ISO 8601' })
+  expected_updated_at?: string;
 }

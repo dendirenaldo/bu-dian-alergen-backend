@@ -85,9 +85,12 @@ export function positiveAllergens(item: any): CorrectedAllergen[] {
 
 /** Vektor label multilabel untuk split/stratifikasi & export klasifikasi. */
 export function allergenLabelSet(item: any): string[] {
+  // Label biner hanya untuk keberadaan positif. Anotasi 'absent'/'unknown'
+  // tetap tersimpan di allergens[] dengan presence-nya, tetapi TIDAK boleh
+  // menjadi kelas positif (menyesatkan model).
   const labels = new Set<string>();
   labels.add(String(item?.goldLabel ?? item?.gold_label ?? 'safe'));
-  for (const a of allergensOf(item)) {
+  for (const a of positiveAllergens(item)) {
     const slug = slugify(a.name);
     if (slug) labels.add(`allergen_${slug}`);
   }

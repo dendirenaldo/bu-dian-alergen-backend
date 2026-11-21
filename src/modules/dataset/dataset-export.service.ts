@@ -25,6 +25,7 @@ import {
   computeValidationIssues,
   datasetOcrTextOf,
   datasetTextOf,
+  positiveAllergens,
   slugify,
 } from './dataset-validation.service';
 import { buildConfiguredSplit, textHash, type ConfiguredSplitResult } from './dataset.split';
@@ -152,6 +153,14 @@ export class DatasetExportService {
       test: dto.testRatio ?? 0.15,
     };
     const sum = ratios.train + ratios.validation + ratios.test;
+    if (profile === 'image_classification' && dto.includeImages === false) {
+      httpError(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Profil image_classification memerlukan gambar; aktifkan includeImages.',
+        'PROFILE_REQUIRES_IMAGES',
+        [{ field: 'includeImages', message: 'Profil gambar tidak dapat diekspor tanpa gambar' }],
+      );
+    }
     if (!(sum > 0.999 && sum < 1.001)) {
       httpError(
         HttpStatus.UNPROCESSABLE_ENTITY,
@@ -279,7 +288,9 @@ export class DatasetExportService {
         }
       }
       const allergens = allergensOf(item);
-      for (const a of allergens) allergenCounts.set(a.name, (allergenCounts.get(a.name) ?? 0) + 1);
+      for (const a of positiveAllergens(item)) {
+        allergenCounts.set(a.name, (allergenCounts.get(a.name) ?? 0) + 1);
+      }
       const gold = String(item.goldLabel ?? 'safe');
       labelDistribution[gold] = (labelDistribution[gold] ?? 0) + 1;
       const ingredients = Array.isArray(item.normalizedIngredients)
@@ -352,11 +363,11 @@ export class DatasetExportService {
     };
   }
 
-  private estimatedBytes(rows: PreparedRow[], profile: ExportProfile): number {
+  private estimatedBytes(rows: PreparedRow[], profile: ExportProfile, includeImages = true): number {
     let bytes = 4096;
     for (const r of rows) {
       bytes += Buffer.byteLength(r.text, 'utf8') + 512;
-      if (r.image && profile !== 'nlp') bytes += r.image.bytes;
+      if (r.image && includeImages && profile !== 'nlp') bytes += r.image.bytes;
     }
     return bytes;
   }
@@ -398,11 +409,15 @@ export class DatasetExportService {
         auditPassed: p.split ? p.split.audit.every((a) => a.status === 'PASS') : true,
         missingText: p.missingText,
       },
-      estimatedBytes: this.estimatedBytes(p.rows, p.cfg.profile),
+      estimatedBytes: this.estimatedBytes(p.rows, p.cfg.profile, p.cfg.includeImages),
     };
   }
 
-  private serializeRecord(r: PreparedRow, splitName?: string) {
+  private serializeRecord(
+    r: PreparedRow,
+    splitName?: string,
+    opts: { includeImages?: boolean; imageDir?: string } = {},
+  ) {
     const item = r.item;
     const det = item.detection ?? null;
     return {
@@ -415,7 +430,7 @@ export class DatasetExportService {
         category: item.category ?? det?.product?.category?.name ?? null,
         barcode: item.barcode ?? null,
       },
-      image: r.image
+      image: r.image && opts.includeImages !== false
         ? {
             path: `images/original/${r.recordId}.${r.image.ext}`,
             type: item.imageType ?? null,
@@ -484,17 +499,22 @@ export class DatasetExportService {
     return r.text.replace(/\s*\r?\n\s*/g, ' ').trim();
   }
 
-  private serializeRecords(rows: PreparedRow[], format: ExportFormat): string {
-    const objs = rows.map((r) => this.serializeRecord(r));
+  private serializeRecords(
+    rows: PreparedRow[],
+    format: ExportFormat,
+    opts: { includeImages?: boolean; imageDir?: string } = {},
+  ): string {
+    const objs = rows.map((r) => this.serializeRecord(r, undefined, opts));
     if (format === 'json') return JSON.stringify(objs, null, 2);
     if (format === 'jsonl') return objs.map((o) => JSON.stringify(o)).join('\n') + (objs.length ? '\n' : '');
-    const header = 'record_id,text,label,label_id,allergens,product_name,brand,category,image_path,split';
+    const header = 'record_id,dataset_item_id,text,label,label_id,allergens,product_name,brand,category,image_path,split';
     const lines = [header];
     for (const r of rows) {
-      const o = this.serializeRecord(r);
+      const o = this.serializeRecord(r, undefined, opts);
       lines.push(
         csvRow([
           o.record_id,
+          r.item.id,
           this.recordTextFor(r),
           o.label.gold,
           o.label.label_id,
@@ -502,7 +522,7 @@ export class DatasetExportService {
           o.product.name ?? '',
           o.product.brand ?? '',
           o.product.category ?? '',
-          r.image ? `images/original/${r.recordId}.${r.image.ext}` : '',
+          r.image && opts.includeImages !== false ? `${opts.imageDir ?? 'images/original'}/${r.recordId}.${r.image.ext}` : '',
           o.split ?? '',
         ]),
       );
@@ -514,6 +534,7 @@ export class DatasetExportService {
     const allergenSlugs = [...new Set(rows.flatMap((r) => r.allergens.map((a) => slugify(a.name))))].sort();
     const header = [
       'record_id',
+      'dataset_item_id',
       'file_name',
       'label',
       'label_id',
@@ -522,12 +543,13 @@ export class DatasetExportService {
     ];
     const lines = [header.join(',')];
     for (const r of rows) {
-      const present = new Set(r.allergens.map((a) => slugify(a.name)));
+      const present = new Set(positiveAllergens(r.item).map((a) => slugify(a.name)));
       const file = r.image ? `${r.recordId}.${r.image.ext}` : '';
       const gold = String(r.item.goldLabel ?? 'safe');
       lines.push(
         csvRow([
           r.recordId,
+          r.item.id,
           file,
           gold,
           labelToId(gold),
@@ -804,7 +826,10 @@ ${examples[profile]}
       files.push({ path, content: buf, bytes: buf.length, sha256: createHash('sha256').update(buf).digest('hex') });
     };
 
-    const allRecords = this.serializeRecords(p.rows, format);
+    const allRecords = this.serializeRecords(p.rows, format, {
+      includeImages: p.cfg.includeImages,
+      imageDir: profile === 'image_classification' ? 'images/all' : 'images/original',
+    });
     const allergenLines =
       p.rows
         .flatMap((r) =>
@@ -839,6 +864,14 @@ ${examples[profile]}
           });
         }
       }
+      if (p.cfg.includeSplits && p.split) {
+        for (const b of ['train', 'validation', 'test'] as const) {
+          pushContent(
+            `splits/${b}.${format === 'csv' ? 'csv' : format === 'json' ? 'json' : 'jsonl'}`,
+            this.serializeRecords(this.splitRows(p.rows, b), format, { includeImages: p.cfg.includeImages }),
+          );
+        }
+      }
     }
 
     if (profile === 'nlp') {
@@ -856,7 +889,7 @@ ${examples[profile]}
       if (p.cfg.includeSplits && p.split) {
         for (const b of ['train', 'validation', 'test'] as const) {
           const subset = this.splitRows(p.rows, b);
-          pushContent(`splits/${b}.${format === 'csv' ? 'csv' : format === 'json' ? 'json' : 'jsonl'}`, this.serializeRecords(subset, format));
+          pushContent(`splits/${b}.${format === 'csv' ? 'csv' : format === 'json' ? 'json' : 'jsonl'}`, this.serializeRecords(subset, format, { includeImages: p.cfg.includeImages }));
         }
       }
     }
@@ -907,7 +940,7 @@ ${examples[profile]}
       }
       if (p.cfg.includeSplits && p.split) {
         for (const b of ['train', 'validation', 'test'] as const) {
-          pushContent(`splits/${b}.${format === 'csv' ? 'csv' : format === 'json' ? 'json' : 'jsonl'}`, this.serializeRecords(this.splitRows(p.rows, b), format));
+          pushContent(`splits/${b}.${format === 'csv' ? 'csv' : format === 'json' ? 'json' : 'jsonl'}`, this.serializeRecords(this.splitRows(p.rows, b), format, { includeImages: p.cfg.includeImages }));
         }
       }
     }

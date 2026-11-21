@@ -3,6 +3,7 @@ import {
   IsArray,
   IsBoolean,
   IsIn,
+  IsISO8601,
   IsOptional,
   IsString,
   MaxLength,
@@ -87,4 +88,9 @@ export class UpdateDatasetItemDto {
 
   @ApiPropertyOptional() @IsOptional() @IsBoolean() export_eligible?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) review_note?: string;
+
+  @ApiPropertyOptional({ description: 'updatedAt yang dilihat klien (optimistic concurrency)' })
+  @IsOptional()
+  @IsISO8601({}, { message: 'expected_updated_at harus ISO 8601' })
+  expected_updated_at?: string;
 }

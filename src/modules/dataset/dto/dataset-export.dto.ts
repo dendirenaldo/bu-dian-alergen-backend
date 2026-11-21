@@ -22,7 +22,10 @@ import {
   SPLIT_STRATEGIES,
 } from '../dataset.constants';
 
-const STATUS_LIST_RE = new RegExp(`^(${DATASET_STATUSES.join('|')})(,${DATASET_STATUSES.join('|')})*$`);
+// Grup non-capturing WAJIB: tanpa itu koma hanya menempel pada alternatif
+// pertama sehingga "approved,verified" ditolak.
+const STATUS_ALT = DATASET_STATUSES.join('|');
+const STATUS_LIST_RE = new RegExp(`^(${STATUS_ALT})(,(${STATUS_ALT}))*$`);
 
 function toBool(value: unknown): boolean | undefined {
   if (value === undefined || value === null || value === '') return undefined;

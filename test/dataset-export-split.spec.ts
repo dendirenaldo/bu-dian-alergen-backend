@@ -63,6 +63,22 @@ describe('buildConfiguredSplit', () => {
     expect(r.labelDistribution.allergen_susu.train + r.labelDistribution.allergen_susu.validation + r.labelDistribution.allergen_susu.test).toBeGreaterThan(0);
   });
 
+  test('dataset kecil 3 grup tetap mengisi train/validation/test', () => {
+    const small = [row(1, 1, 'a', ['safe']), row(2, 2, 'b', ['unsafe']), row(3, 3, 'c', ['safe'])];
+    const r = buildConfiguredSplit(small, { seed: 42 });
+    expect(r.counts.train).toBeGreaterThan(0);
+    expect(r.counts.validation).toBeGreaterThan(0);
+    expect(r.counts.test).toBeGreaterThan(0);
+    expect(r.audit.every((a) => a.status === 'PASS')).toBe(true);
+  });
+
+  test('dataset 2 grup memberi peringatan split kosong yang eksplisit', () => {
+    const small = [row(1, 1, 'a', ['safe']), row(2, 2, 'b', ['unsafe'])];
+    const r = buildConfiguredSplit(small, { seed: 42 });
+    expect(r.warning).toBeTruthy();
+    expect(r.counts.total).toBe(2);
+  });
+
   test('duplikat teks disatukan ke komponen yang sama', () => {
     const dup = [row(1, 1, 'susu bubuk', ['unsafe']), row(2, 2, 'susu bubuk', ['unsafe'])];
     const r = buildConfiguredSplit(dup, { seed: 42 });

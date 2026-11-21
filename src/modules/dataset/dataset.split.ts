@@ -255,6 +255,35 @@ export function buildConfiguredSplit(
     assignedCount[best] += comp.ids.length;
   }
 
+  // Dataset kecil: pastikan split yang diminta tidak kosong bila komponen
+  // cukup (minimal 3). Pindahkan SATU komponen utuh agar tidak bocor.
+  if (comps.length >= 3) {
+    const compsIn = (split: 'train' | 'validation' | 'test') =>
+      comps.filter((c) => c.ids.every((id) => buckets[split].includes(id)));
+    const move = (from: 'train' | 'validation' | 'test', to: 'train' | 'validation' | 'test') => {
+      const candidates = compsIn(from).sort((a, b) => a.ids.length - b.ids.length || a.key - b.key);
+      const comp = candidates[0];
+      if (!comp) return false;
+      const set = new Set(comp.ids);
+      buckets[from] = buckets[from].filter((id) => !set.has(id));
+      buckets[to].push(...comp.ids);
+      return true;
+    };
+    if (ratios.validation > 0 && buckets.validation.length === 0) move('train', 'validation');
+    if (ratios.test > 0 && buckets.test.length === 0) {
+      if (!move('train', 'test')) move('validation', 'test');
+    }
+    // Bangun ulang hitungan label setelah perpindahan.
+    for (const split of ['train', 'validation', 'test'] as const) {
+      labelCounts[split] = new Map();
+      for (const id of buckets[split]) {
+        for (const label of rows[idxOf.get(id)!].labels) {
+          labelCounts[split].set(label, (labelCounts[split].get(label) ?? 0) + 1);
+        }
+      }
+    }
+  }
+
   const sortAsc = (a: number, b: number) => a - b;
   buckets.train.sort(sortAsc);
   buckets.validation.sort(sortAsc);
@@ -275,9 +304,14 @@ export function buildConfiguredSplit(
   }
 
   const duplicateGroupCount = [...byHash.values()].filter((ids) => ids.length > 1).length;
+  const emptyRequested =
+    (ratios.validation > 0 && buckets.validation.length === 0) ||
+    (ratios.test > 0 && buckets.test.length === 0);
   const warning = audit.some((a) => a.status === 'FAIL')
     ? 'Audit split mendeteksi tumpang tindih; periksa duplicateGroups.'
-    : undefined;
+    : emptyRequested
+      ? 'Dataset terlalu kecil untuk mengisi semua split; periksa counts.'
+      : undefined;
   if (opts.strategy === 'multilabel' && allLabels.length > 1) {
     // Multi-label: tidak ada stratifikasi eksklusif; gunakan greedy di atas.
   }
