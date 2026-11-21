@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, statSync } from 'fs';
 import { basename, extname, join } from 'path';
 import type { Response } from 'express';
-import { Op, fn, col } from 'sequelize';
+import { Op, fn, col, where as sqlWhere } from 'sequelize';
 import { DatasetItem } from './models/dataset-item.model';
 import type { ValidationIssue } from './models/dataset-item.model';
 import { Detection } from '../detections/models/detection.model';
@@ -535,9 +535,13 @@ export class DatasetService {
       if (query.to) where.createdAt[Op.lte] = new Date(query.to);
     }
     if (query.allergen && String(query.allergen).trim()) {
-      // JSON disimpan sebagai TEXT di MariaDB/SQLite; LIKE cukup untuk filter
-      // nama alergen dan tetap kompatibel lintas dialek (tanpa JSON_SEARCH).
-      where.correctedAllergens = { [Op.like]: `%${this.escapeLike(String(query.allergen).trim())}%` };
+      // Kolom JSON tidak boleh diberi nilai LIKE mentah: Sequelize akan
+      // meng-stringify JSON sehingga pola menjadi '"%Gluten%"' dan tidak
+      // pernah cocok. Pakai ekspresi LOWER(CAST) eksplisit.
+      const needle = String(query.allergen).trim().toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`);
+      where[Op.and] = [
+        sqlWhere(fn('LOWER', col('corrected_allergens')), { [Op.like]: `%${needle}%` }),
+      ];
     }
     if (query.search && String(query.search).trim()) {
       const raw = String(query.search).trim().slice(0, 100);
@@ -700,6 +704,8 @@ export class DatasetService {
     const url = item.imageUrl ?? item.image_url ?? null;
     const owned = String(item.storedFilename ?? '');
     await item.destroy();
+    // Jangan tinggalkan referensi duplikat yang menggantung.
+    await this.datasetModel.update({ duplicateOf: null } as any, { where: { duplicateOf: id } });
     // Hanya hapus berkas yang diunggah langsung untuk record ini. Record hasil
     // promosi memakai gambar deteksi bersama; menghapusnya akan merusak
     // deteksi asli (data loss).
@@ -759,6 +765,13 @@ export class DatasetService {
     const dims = readImageDimensions(file.buffer);
     if (!dims) {
       httpError(HttpStatus.BAD_REQUEST, 'Gambar rusak atau tidak dapat dibaca', 'INVALID_IMAGE_CONTENT');
+    }
+    // Cegah decompression bomb / gambar ekstrem sebelum diproses lebih lanjut.
+    if (!Number.isFinite(dims.width) || !Number.isFinite(dims.height) || dims.width <= 0 || dims.height <= 0) {
+      httpError(HttpStatus.BAD_REQUEST, 'Dimensi gambar tidak valid', 'INVALID_IMAGE_CONTENT');
+    }
+    if (dims.width > 12000 || dims.height > 12000 || dims.width * dims.height > 40_000_000) {
+      httpError(HttpStatus.BAD_REQUEST, 'Dimensi gambar terlalu besar (maks 12000 px / 40 MP)', 'IMAGE_DIMENSIONS_TOO_LARGE');
     }
     const checksum = sha256Buffer(file.buffer);
     const stored = safeStoredFilename(`ds${id}`, file.originalname, mime, ext);
