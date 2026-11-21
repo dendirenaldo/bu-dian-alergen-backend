@@ -6,6 +6,7 @@ import type { Request, Response } from 'express';
 import { DetectionsService, FREE_DETECTION_LIMIT, buildSseEvent, encodeSse, ensureAnonId, extractClientIp, hashIp, SSE_HEARTBEAT, SSE_HEARTBEAT_MS } from './detections.service';
 import { DatasetService } from '../dataset/dataset.service';
 import { DetectTextDto } from './dto/detect-text.dto';
+import { ContributeDetectionDto } from './dto/contribute-detection.dto';
 import { DetectModelQueryDto } from './dto/detect-model.query';
 import { AdminDetectionsQueryDto } from './dto/admin-detections.query';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
@@ -62,7 +63,7 @@ export class DetectionsController {
 
   @Get('public/quota')
   @Public()
-  @Throttle({ public: { limit: 30, ttl: 60000 } })
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Cek sisa kuota deteksi tanpa login (5x per jam)' })
   async publicQuota(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const anonId = ensureAnonId(req);
@@ -75,7 +76,7 @@ export class DetectionsController {
 
   @Post('public/text')
   @Public()
-  @Throttle({ public: { limit: 6, ttl: 3600000 } })
+  @Throttle({ default: { limit: 6, ttl: 3600000 } })
   @ApiOperation({ summary: 'Deteksi teks tanpa login (hanya bisa 5x per jam)' })
   async publicDetectText(
     @Req() req: Request,
@@ -123,7 +124,7 @@ export class DetectionsController {
 
   @Post('public/upload')
   @Public()
-  @Throttle({ public: { limit: 6, ttl: 3600000 } })
+  @Throttle({ default: { limit: 6, ttl: 3600000 } })
   @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Deteksi gambar tanpa login (hanya bisa 5x per jam)' })
@@ -188,6 +189,22 @@ export class DetectionsController {
   @ApiOperation({ summary: 'Admin: semua riwayat deteksi beserta pemiliknya' })
   findAllAdmin(@Query() query: AdminDetectionsQueryDto) {
     return this.detectionsService.findAllAdmin(query);
+  }
+
+  /**
+   * Kontribusi pengguna: deteksi milik sendiri masuk antrean dataset (draft).
+   * Admin boleh memakai endpoint ini untuk deteksi mana pun (promosi).
+   */
+  @Post(':id/contribute')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Kontribusikan hasil deteksi ke dataset (pemilik atau admin)' })
+  contribute(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ContributeDetectionDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.datasetService.contributeFromDetection(id, { sub: user?.sub, role: user?.role }, dto);
   }
 
   @Put('admin/dataset/:detectionId')

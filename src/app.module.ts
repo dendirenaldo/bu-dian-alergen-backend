@@ -33,12 +33,11 @@ import { HealthModule } from './modules/health/health.module';
         // Bucket global longgar per sidik (IP + UA): 3000 req/60 dtk.
         // Kalibrasi ala bpu-unsri: ~18 request/load halaman -> ~165 load/mnt.
         const ttlSec = num(config.get<string>('THROTTLE_TTL'), 60);
-        return [
-          { name: 'default', ttl: ttlSec * 1000, limit: num(config.get<string>('THROTTLE_LIMIT'), 3000) },
-          { name: 'auth', ttl: 60000, limit: num(config.get<string>('THROTTLE_AUTH_LIMIT'), 60) },
-          // Kuota publik (anon) tetap ketat: 6/jam.
-          { name: 'public', ttl: 3600000, limit: 6 },
-        ];
+        // Hanya SATU bucket global. Bucket bernama tambahan pada v6 ikut
+        // dievaluasi untuk semua rute (bukan hanya rute yang menyebutnya),
+        // sehingga 'public' 6/jam pernah membatasi seluruh API — termasuk
+        // admin. Rute ketat kini memakai override `default` eksplisit.
+        return [{ name: 'default', ttl: ttlSec * 1000, limit: num(config.get<string>('THROTTLE_LIMIT'), 3000) }];
       },
     }),
     DatabaseModule,

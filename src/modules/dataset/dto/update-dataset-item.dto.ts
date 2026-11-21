@@ -1,33 +1,29 @@
 import {
+  ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsIn,
-  IsNumber,
   IsOptional,
   IsString,
-  Max,
   MaxLength,
-  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { AllergenAnnotationDto } from './create-dataset-item.dto';
+import {
+  DATASET_STATUSES,
+  IMAGE_TYPES,
+  OCR_STATUSES,
+} from '../dataset.constants';
 
-export class CorrectedAllergenDto {
-  @ApiPropertyOptional({ example: 'Gluten' })
-  @IsString({ message: 'Nama alergen harus string' })
-  name: string;
-
-  @ApiPropertyOptional({ enum: ['low', 'medium', 'high', 'critical'] })
-  @IsIn(['low', 'medium', 'high', 'critical'], { message: 'Severity harus low, medium, high, atau critical' })
-  severity: 'low' | 'medium' | 'high' | 'critical';
-
-  @ApiPropertyOptional({ example: 0.95, minimum: 0, maximum: 1 })
-  @IsNumber({}, { message: 'Confidence harus angka 0..1' })
-  @Min(0, { message: 'Confidence minimal 0' })
-  @Max(1, { message: 'Confidence maksimal 1' })
-  confidence: number;
-}
+/**
+ * Kompatibel dengan payload lama (`corrected_text`, `gold_label`,
+ * `corrected_allergens`, `status`, `notes`) sekaligus menerima metadata
+ * platform yang baru. Semua field opsional (PATCH parsial).
+ */
+export class CorrectedAllergenDto extends AllergenAnnotationDto {}
 
 export class UpdateDatasetItemDto {
   @ApiPropertyOptional({ description: 'Teks koreksi manual (1..5000 karakter)' })
@@ -45,18 +41,50 @@ export class UpdateDatasetItemDto {
   @ApiPropertyOptional({ type: [CorrectedAllergenDto] })
   @IsOptional()
   @IsArray({ message: 'corrected_allergens harus array' })
+  @ArrayMaxSize(60)
   @ValidateNested({ each: true })
   @Type(() => CorrectedAllergenDto)
   corrected_allergens?: CorrectedAllergenDto[];
 
-  @ApiPropertyOptional({ enum: ['draft', 'verified'] })
+  @ApiPropertyOptional({ enum: DATASET_STATUSES })
   @IsOptional()
-  @IsIn(['draft', 'verified'], { message: 'status harus draft atau verified' })
-  status?: 'draft' | 'verified';
+  @IsIn(DATASET_STATUSES as unknown as string[], { message: 'status tidak valid' })
+  status?: string;
 
   @ApiPropertyOptional({ description: 'Catatan kurasi (maks 2000 karakter)' })
   @IsOptional()
   @IsString({ message: 'notes harus string' })
   @MaxLength(2000, { message: 'notes maksimal 2000 karakter' })
   notes?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(255) product_name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(255) brand?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) category?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(64) barcode?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(5000) ocr_text?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(5000) ingredient_text?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(300)
+  @IsString({ each: true })
+  normalized_ingredients?: string[];
+
+  @ApiPropertyOptional({ enum: IMAGE_TYPES })
+  @IsOptional()
+  @IsIn(IMAGE_TYPES as unknown as string[])
+  image_type?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(64) ocr_engine?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(32) ocr_engine_version?: string;
+
+  @ApiPropertyOptional({ enum: OCR_STATUSES })
+  @IsOptional()
+  @IsIn(OCR_STATUSES as unknown as string[])
+  ocr_status?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() export_eligible?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) review_note?: string;
 }

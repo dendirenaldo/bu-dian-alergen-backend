@@ -21,7 +21,7 @@ export class AuthController {
 
   @Post('register')
   @Public()
-  @Throttle({ auth: { limit: 30, ttl: 60000 } })
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Register new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
@@ -32,7 +32,7 @@ export class AuthController {
 
   @Post('login')
   @Public()
-  @Throttle({ auth: { limit: 30, ttl: 60000 } })
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Login user' })
   @ApiResponse({ status: 200, description: 'User logged in successfully' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })

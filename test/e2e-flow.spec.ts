@@ -21,6 +21,7 @@ import { DetectionsModule } from '../src/modules/detections/detections.module';
 import { ContentsModule } from '../src/modules/contents/contents.module';
 import { DashboardModule } from '../src/modules/dashboard/dashboard.module';
 import { SettingsModule } from '../src/modules/settings/settings.module';
+import { HealthModule } from '../src/modules/health/health.module';
 import { User } from '../src/modules/users/models/user.model';
 import { AllExceptionsFilter } from '../src/common/filters/validation-exception.filter';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
@@ -76,6 +77,7 @@ describe('E2E: register → login → deteksi → riwayat', () => {
         ContentsModule,
         DashboardModule,
         SettingsModule,
+        HealthModule,
       ],
     })
       .overrideProvider(HttpService)
@@ -322,7 +324,7 @@ describe('E2E: register → login → deteksi → riwayat', () => {
     }
     expect(statuses.every((s) => s === 200)).toBe(true);
     const body = await request(app.getHttpServer()).get('/api/v1/health');
-    expect(body.body.status).toBe('ok');
+    expect(body.body.data?.status ?? body.body.status).toBe('ok');
   });
 
   it('settings publik: tanpa token 200 + app_name, admin detail tetap terkunci', async () => {

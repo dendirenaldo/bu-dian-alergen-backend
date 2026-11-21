@@ -1,28 +1,80 @@
-# Modul Dataset (Allergen Detector) — Kurasi → Ekspor → Training
+# Modul Dataset
 
-Alur: tarik → koreksi → verify → export → gabung → train.
+Kurasi → validasi → review → ekspor. Backend adalah otoritas aturan.
 
-1. Tarik: `PUT /detections/admin/dataset/:detectionId` (prefill OCR/gold_label/alergen; idempoten — bila sudah ada return existing).
-2. Koreksi: `PATCH /dataset-items/:id` (`corrected_text` 1..5000, `gold_label` safe|unsafe, `corrected_allergens[]` nama wajib ∈ master `allergens.name` else 422 `UNKNOWN_ALLERGEN`, `severity` low|medium|high|critical, `confidence` 0..1, `notes` maks 2000, `status` draft|verified). `PATCH :id/verify` / `:id/unverify` set `verified_by/at`.
-3. Verify: hanya `status=verified` ikut export/download default; `draft` hanya bila `?status=draft` eksplisit.
-4. Export: `GET /dataset-items/export?status&label&format=csv|json` → CSV header persis `text,label_id,label` (koma, quote-escape, utf-8, trailing `\n`); mapping 0=safe, 1=unsafe.
-5. Unduh: `GET /dataset-items/download?status&label&includeLabels&includeImages&includeSplit` → ZIP `dataset_<yyyymmdd>_<n>items.zip`: `dataset.csv` + `manifest.csv` (11 kolom + `file_found`) + `images/<id>.<ext>` dari `./uploads` (hilang → `file_found=false`, tanpa fallback) + `split.json` (seed 42, Fisher-Yates, union-find detection-group + md5 teks, 70/15/15 per komponen, groupBy `detection_id||id`, `keyColumns:[id]`, `duplicateGroups` md5 cap 50, `coverage{groups,components,uniqueTexts,total,duplicateIds}`, `components`, `audit` disjoint 6 baris, `sessions{train,val,test}`, `preflight{disjoint,hasTestImages,missingImages,duplicateGroups,duplicateGroupsCapped,frozenConflict}`) + `README.txt`.
-6. Estimasi: `GET /dataset-items/download/estimate` → `{bytes,fileCount,breakdown}`. Throttle export/download 5/mnt. Audit `dataset.*` di `audit_logs` (no-op bila tabel belum ada).
+## Alur status
 
-## Gabung ke train_real
+```
+draft → pending_review → verified → approved
+  ↑          ↓                ↓
+  └── needs_correction ←──────┘
+         ↓
+      rejected / archived
+```
 
-`dataset.csv` (delimiter `,`) di-append ke `train_real.csv`:
+Transisi tidak sah → `409 INVALID_STATUS_TRANSITION`. Lihat
+`dataset.constants.ts`.
+
+## Endpoint admin (`/api/v1/dataset-items`)
+
+| Method | Path | Keterangan |
+|---|---|---|
+| GET | `/` | List + filter: `status` (koma), `label`, `source`, `acquisitionSource`, `category`, `allergen`, `ocrStatus`, `quality`, `duplicate`, `exportEligible`, `from`, `to`, `search`, sort, paginasi |
+| POST | `/` | Buat record manual (`CreateDatasetItemDto`) |
+| GET | `/:id` | Detail |
+| GET | `/:id/history` | Riwayat audit record |
+| PATCH | `/:id` | Update parsial + transisi status |
+| PATCH | `/:id/review` | `submit/verify/approve/reject/request_correction/archive/restore` |
+| POST | `/:id/image` | Unggah gambar (JPG/PNG/WEBP/GIF/BMP, ≤5 MB), hitung SHA-256 + dimensi |
+| PATCH | `/:id/verify` | Shorthand verify |
+| PATCH | `/:id/unverify` | Kembalikan ke `needs_correction` |
+| DELETE | `/:id` | Hapus record + berkas gambar |
+| GET | `/statistics` | Statistik operasional + distribusi + tren 14 hari |
+
+## Ekspor
+
+| Method | Path | Keterangan |
+|---|---|---|
+| GET | `/export` | CSV/JSON lama (kompatibel; default verified+approved) |
+| GET | `/download` | ZIP format lama (`dataset.csv`, manifest, images, split.json) |
+| GET | `/download/estimate` | Estimasi ZIP lama |
+| POST | `/exports/preview` | Pratinjau profil baru |
+| POST | `/exports` | Hasilkan ZIP berprofil + simpan riwayat |
+| GET | `/exports` | Riwayat ekspor |
+| GET | `/exports/:id/download` | Unduh ulang |
+
+Profil: `raw`, `nlp`, `image_classification`, `multimodal`.
+Dokumentasi lengkap: `docs/DATASET_EXPORT.md`.
+
+## Kontribusi pengguna
+
+`POST /api/v1/detections/:id/contribute` (pemilik atau admin) membuat record
+`draft` dengan `source=user_submission` / `acquisition_source=user_scan`.
+Satu deteksi hanya boleh punya satu record (`409 ALREADY_CONTRIBUTED`).
+
+## Validasi (ringkas)
+
+- teks & nama produk wajib saat review;
+- alergen harus ada di master `allergens.name`;
+- `gold_label=safe` + alergen positif → error konflik;
+- anotasi kosong → error kecuali manusia menyatakan sudah memeriksa
+  (`annotationSource=human` + `annotatedAt`);
+- confidence 0..1, severity valid;
+- duplikat teks (md5) → warning + `duplicateOf` (kanonik = id terkecil);
+- gambar: MIME, ukuran, checksum, dimensi.
+
+Hasil disimpan di `validation_errors` dan `quality_status`
+(`ok|warning|error`).
+
+## Migrasi
 
 ```bash
-CSV_DELIMITER="," python scripts/rebuild_split.py --csv-input gabungan.csv --out-dir ./artifacts/bert/input
+npm run build
+npm run db:migrate
 ```
 
-Catatan: train default `CSV_DELIMITER=";"` (lihat `ml-training/.env.example:8`, `app/config.py:130-132`) — wajib set `CSV_DELIMITER=","` saat gabung. Kolom `nama_produk` absen → disintesis `produk_{i}`; grouping produk andalkan `split.json` backend. Jangan campur holdout ke train.
+- `20261001000000-dataset-platform.ts` — kolom metadata + index + ENUM→VARCHAR.
+- `20261001000001-dataset-exports.ts` — riwayat ekspor.
 
-Contoh valid (`text,label_id,label`):
-
-```csv
-text,label_id,label
-Air mineral murni,0,safe
-"Susu bubuk, mengandung ""kacang"" dan whey",1,unsafe
-```
+Idempoten dan non-destruktif. Untuk pengembangan tanpa MySQL:
+`DB_DIALECT=sqlite DB_STORAGE=./.dev/dev.sqlite DB_SYNC=true`.
